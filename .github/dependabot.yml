@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # ── npm dependencies ──────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    # Group all non-major updates into a single PR to reduce noise
+    groups:
+      non-major-dependencies:
+        update-types:
+          - "minor"
+          - "patch"
+    # Limit to 5 open PRs at a time
+    open-pull-requests-limit: 5
+    # Security updates get highest priority
+    labels:
+      - "dependencies"
+      - "security"
+    reviewers:
+      - "maintainer"
+    # Auto-merge only patch updates after CI passes (optional, comment in if desired)
+    # versioning-strategy: increase
+
+  # ── GitHub Actions ────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    labels:
+      - "ci"
+      - "dependencies"

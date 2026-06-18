@@ -1,0 +1,989 @@
+// MaternalCare — 3NF-Normalized PostgreSQL Schema
+// Every table is in at least Third Normal Form (3NF).
+// PK = Primary Key, FK = Foreign Key, CK = Check Constraint
+// CK constraints are enforced via SQL migrations where Prisma cannot express them directly.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core Identity & Access ──────────────────────────────────────
+
+model User {
+  id                  String    @id @default(uuid()) // PK
+  email               String?   @unique
+  phone               String?   @unique
+  passwordHash        String    @map("password_hash")
+  firstName           String    @map("first_name")
+  lastName            String    @map("last_name")
+  dateOfBirth         DateTime? @map("date_of_birth")
+  isActive            Boolean   @default(true) @map("is_active")
+  emailVerified       Boolean   @default(false) @map("email_verified")
+  totpSecret          String?   @map("totp_secret")
+  totpEnabled         Boolean   @default(false) @map("totp_enabled")
+  tokenVersion        Int       @default(0) @map("token_version")
+  partnerCode         String?   @unique @map("partner_code")
+  lastLoginAt         DateTime? @map("last_login_at")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockoutUntil        DateTime? @map("lockout_until")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  userRoles                     UserRole[]
+  preferences                   UserPreference?
+  pregnancyProfile              PregnancyProfile?
+  motherHealthProfile           MotherHealthProfile?
+  fatherHealthProfile           FatherHealthProfile?
+  reminderChannelPreferences    UserReminderChannelPreference[]
+  appointments                  Appointment[]
+  wellnessLogs                  WellnessLog[]
+  symptomLogs                   SymptomLog[]
+  userVaccinations              UserVaccination[]
+  familyAsMother                Family[]              @relation("MotherFamily")
+  familyMemberships             FamilyMember[]
+  assignedTasks                 TaskAssignment[]
+  createdSharedTasks            SharedTask[]          @relation("CreatedTasks")
+  createdSharedNotes            SharedNote[]          @relation("CreatedNotes")
+  chatbotSessions               ChatbotSession[]
+  notifications                 Notification[]
+  auditLogs                     AuditLog[]
+  adminContentAuditLogs         AdminContentAuditLog[]
+  supportGoalProgress           SupportGoalProgress[]
+  createdWeekContent            WeekContent[]         @relation("CreatedByUser")
+  updatedWeekContent            WeekContent[]         @relation("UpdatedByUser")
+  createdPostpartumContent      PostpartumWeekContent[] @relation("PostpartumCreatedBy")
+  updatedPostpartumContent      PostpartumWeekContent[] @relation("PostpartumUpdatedBy")
+  givenRatings                  TaskRating[]          @relation("GivenRatings")
+  receivedRatings               TaskRating[]          @relation("ReceivedRatings")
+
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  loginHistory UserLoginHistory[]
+  postpartumHealthLogs           PostpartumHealthLog[]
+
+  @@map("users")
+}
+
+model UserLoginHistory {
+  id        String   @id @default(uuid()) // PK
+  userId    String   @map("user_id") // FK -> users.id
+  loginDate DateTime @map("login_date") @db.Date
+  loginAt   DateTime @map("login_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, loginDate])
+  @@map("user_login_history")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+model Role {
+  id        String   @id @default(uuid()) // PK
+  roleName  String   @unique @map("role_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId    String   @map("user_id") // PK, FK -> users.id
+  roleId    String   @map("role_id") // PK, FK -> roles.id
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Language {
+  id        String   @id @default(uuid()) // PK
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  userPreferences       UserPreference[]
+  weekContents          WeekContent[]
+  postpartumWeekContents PostpartumWeekContent[]
+  faqs                  Faq[]
+  reminderTemplates     ReminderTemplate[]
+
+  @@map("languages")
+}
+
+model UserPreference {
+  id                  String   @id @default(uuid()) // PK
+  userId              String   @unique @map("user_id") // FK -> users.id
+  preferredLanguageId String   @map("preferred_language_id") // FK -> languages.id
+  timeZone            String   @default("UTC") @map("time_zone")
+  themePreference     String   @default("light") @map("theme_preference") // CK: 'light' | 'dark' | 'system'
+  consentDataProcessing Boolean @default(false) @map("consent_data_processing")
+  consentNotifications   Boolean @default(false) @map("consent_notifications")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [preferredLanguageId], references: [id])
+
+  @@map("user_preferences")
+}
+
+model ReminderChannel {
+  id        String   @id @default(uuid()) // PK
+  channelName String @unique @map("channel_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  userChannelPreferences UserReminderChannelPreference[]
+  reminderTemplates      ReminderTemplate[]
+  notifications          Notification[]
+
+  @@map("reminder_channels")
+}
+
+model UserReminderChannelPreference {
+  userId    String   @map("user_id") // PK, FK -> users.id
+  channelId String   @map("channel_id") // PK, FK -> reminder_channels.id
+  isEnabled Boolean  @default(true) @map("is_enabled")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel ReminderChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([userId, channelId])
+  @@map("user_reminder_channel_preferences")
+}
+
+// ─── Pregnancy Profile ───────────────────────────────────────────
+
+model PregnancyProfile {
+  id                  String   @id @default(uuid()) // PK
+  userId              String   @unique @map("user_id") // FK -> users.id
+  profileStartBasis   String   @map("profile_start_basis") // 'lmp' | 'due_date' | 'ivf_transfer'
+  lmpDate             DateTime? @map("lmp_date")
+  dueDate             DateTime? @map("due_date")
+  gravida             Int?      // CK: integer >= 0
+  parity              Int?      // CK: integer >= 0
+  highRiskFlag        Boolean   @default(false) @map("high_risk_flag")
+  emergencyContactName  String? @map("emergency_contact_name")
+  emergencyContactPhone String? @map("emergency_contact_phone")
+  // ── Auto-calculated pregnancy week fields (updated daily) ──
+  currentPregnancyWeek Int?     @map("current_pregnancy_week") // 1-42, computed from LMP/DueDate
+  currentTrimester     Int?     @map("current_trimester") // 1, 2, or 3
+  daysUntilDue         Int?     @map("days_until_due") // days remaining until due date
+  weekLastUpdated      DateTime? @map("week_last_updated") // timestamp of last week recalculation
+  // ── Postpartum / Phase Management ──
+  deliveryDate         DateTime? @map("delivery_date") // when baby was born
+  phase                String    @default("pregnancy") @map("phase") // 'pregnancy' | 'postpartum'
+  postpartumWeek       Int?      @map("postpartum_week") // 1-52, weeks since delivery
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pregnancy_profiles")
+}
+
+// ─── Mother Health Profile ──────────────────────────────────────
+
+model MotherHealthProfile {
+  id                    String   @id @default(uuid()) // PK
+  userId                String   @unique @map("user_id") // FK -> users.id
+  height                Float    @map("height") // cm
+  weight                Float    @map("weight") // kg
+  bmi                   Float    @map("bmi") // auto-calculated
+  city                  String   @map("city")
+  age                   Int      @map("age")
+  weeksOfPregnancy      Int?     @map("weeks_of_pregnancy") // nullable — not applicable for postpartum users
+  isFirstPregnancy      Boolean  @map("is_first_pregnancy")
+  numberOfChildren      Int?     @map("number_of_children") // null if first pregnancy
+  lmpDate               DateTime? @map("lmp_date")
+  dueDate               DateTime? @map("due_date")
+  bloodGroup            String   @map("blood_group") // A+, B+, AB+, O+, A-, B-, AB-, O-
+  allergies             String   @default("") @map("allergies")
+  medications           String   @default("") @map("medications")
+  diet                  String   @map("diet") // veg | non-veg
+  husbandName           String   @map("husband_name")
+  emergencyContact      String   @map("emergency_contact")
+  phoneNumber           String   @map("phone_number")
+  // Medical history
+  diabetes              Boolean  @default(false) @map("diabetes")
+  highBP                Boolean  @default(false) @map("high_bp")
+  lowBP                 Boolean  @default(false) @map("low_bp")
+  thyroidDisorder       Boolean  @default(false) @map("thyroid_disorder")
+  pcos                  Boolean  @default(false) @map("pcos")
+  asthma                Boolean  @default(false) @map("asthma")
+  heartDisease          Boolean  @default(false) @map("heart_disease")
+  kidneyIssues          Boolean  @default(false) @map("kidney_issues")
+  epilepsy              Boolean  @default(false) @map("epilepsy")
+  anemia                Boolean  @default(false) @map("anemia")
+  depressionAnxiety     Boolean  @default(false) @map("depression_anxiety")
+  // Previous pregnancy history
+  previousMiscarriage       Boolean? @map("previous_miscarriage")
+  previousCSection          Boolean? @map("previous_c_section")
+  previousPrematureDelivery Boolean? @map("previous_premature_delivery")
+  previousStillBirth        Boolean? @map("previous_still_birth")
+  pregnancyComplications    String?  @map("pregnancy_complications")
+  // Lifestyle
+  smokingExposure       Boolean  @default(false) @map("smoking_exposure")
+  alcoholExposure       Boolean  @default(false) @map("alcohol_exposure")
+  // Postpartum-specific fields
+  deliveryDate          DateTime? @map("delivery_date") // when baby was born
+  deliveryType          String?  @map("delivery_type") // vaginal | c-section | assisted
+  deliveryComplications String?  @map("delivery_complications") // e.g. postpartum hemorrhage, tears, none
+  breastfeedingStatus   String?  @map("breastfeeding_status") // exclusive | mixed | formula
+  babyBirthWeight       Float?   @map("baby_birth_weight") // kg
+  babyGender            String?  @map("baby_gender") // boy | girl | prefer-not-say
+  babyCount             Int?     @map("baby_count") // 1, 2, 3 for multiples
+  nicuStay              Boolean? @map("nicu_stay") // whether baby required NICU
+  nicuStayDuration      Int?     @map("nicu_stay_duration") // days spent in NICU
+  postpartumSupport     String?  @map("postpartum_support") // family, doula, none
+  // Profile completion flag
+  profileCompleted      Boolean  @default(true) @map("profile_completed")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mother_health_profiles")
+}
+
+// ─── Father Health Profile ──────────────────────────────────────
+
+model FatherHealthProfile {
+  id                    String   @id @default(uuid()) // PK
+  userId                String   @unique @map("user_id") // FK -> users.id
+  height                Float    @map("height") // cm
+  weight                Float    @map("weight") // kg
+  bmi                   Float    @map("bmi") // auto-calculated
+  age                   Int      @map("age")
+  occupation            String   @map("occupation")
+  workingHours          Int      @map("working_hours") // hours per day
+  livingWithMother      Boolean  @map("living_with_mother")
+  isFirstTimeFather     Boolean  @map("is_first_time_father")
+  // Medical history (same as mother profile)
+  diabetes              Boolean  @default(false) @map("diabetes")
+  highBP                Boolean  @default(false) @map("high_bp")
+  lowBP                 Boolean  @default(false) @map("low_bp")
+  thyroidDisorder       Boolean  @default(false) @map("thyroid_disorder")
+  pcos                  Boolean  @default(false) @map("pcos")
+  asthma                Boolean  @default(false) @map("asthma")
+  heartDisease          Boolean  @default(false) @map("heart_disease")
+  kidneyIssues          Boolean  @default(false) @map("kidney_issues")
+  epilepsy              Boolean  @default(false) @map("epilepsy")
+  anemia                Boolean  @default(false) @map("anemia")
+  depressionAnxiety     Boolean  @default(false) @map("depression_anxiety")
+  // Lifestyle
+  smokingStatus         String   @default("never") @map("smoking_status") // never | former | current
+  tobaccoConsumption    Boolean  @default(false) @map("tobacco_consumption")
+  drugExposure          Boolean  @default(false) @map("drug_exposure")
+  physicalActivity      String   @default("sedentary") @map("physical_activity") // sedentary | lightly_active | moderately_active | very_active
+  // Profile completion flag
+  profileCompleted      Boolean  @default(true) @map("profile_completed")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("father_health_profiles")
+}
+
+// ─── Content Tables ──────────────────────────────────────────────
+
+model WeekContent {
+  id              String   @id @default(uuid()) // PK
+  weekNumber      Int      @map("week_number") // CK: integer between 1 and 42
+  languageId      String   @map("language_id") // FK -> languages.id
+  title           String
+  summary         String
+  bodyMarkdown    String   @map("body_markdown")
+  dietNotes       String?  @map("diet_notes")
+  activityNotes   String?  @map("activity_notes")
+  warningSigns    String?  @map("warning_signs")
+  createdBy       String   @map("created_by") // FK -> users.id
+  updatedBy       String?  @map("updated_by") // FK -> users.id
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  language      Language @relation(fields: [languageId], references: [id])
+  createdByUser User     @relation("CreatedByUser", fields: [createdBy], references: [id])
+  updatedByUser User?    @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+
+  @@unique([weekNumber, languageId])
+  @@map("week_content")
+}
+
+// ─── Postpartum Health Log ─────────────────────────────────────────
+
+model PostpartumHealthLog {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  logType         String   @map("log_type")
+  logDate         DateTime @default(now()) @map("log_date")
+  bleedingLevel   String?  @map("bleeding_level")
+  painLevel       Int?     @map("pain_level")
+  perineumHealing String?  @map("perineum_healing")
+  cSectionHealing String?  @map("c_section_healing")
+  feedingDuration Int?     @map("feeding_duration")
+  feedingSide     String?  @map("feeding_side")
+  feedingNotes    String?  @map("feeding_notes")
+  babyWeight      Float?   @map("baby_weight")
+  diaperCount     Int?     @map("diaper_count")
+  diaperType      String?  @map("diaper_type")
+  exercisesDone   String[] @map("exercises_done")
+  kegelCount      Int?     @map("kegel_count")
+  moodScore       Int?     @map("mood_score")
+  anxietyLevel    Int?     @map("anxiety_level")
+  sleepHours      Float?   @map("sleep_hours")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, logType])
+  @@index([logDate])
+  @@map("postpartum_health_logs")
+}
+
+// ─── Postpartum Week Content ──────────────────────────────────────
+
+model PostpartumWeekContent {
+  id                String   @id @default(uuid()) // PK
+  weekNumber        Int      @map("week_number") // CK: integer between 1 and 52
+  languageId        String   @map("language_id") // FK -> languages.id
+  title             String
+  summary           String
+  bodyMarkdown      String   @map("body_markdown")
+  recoveryNotes     String?  @map("recovery_notes") // pelvic floor, c-section healing
+  babyCareNotes     String?  @map("baby_care_notes") // feeding, sleeping, milestones
+  mentalHealthNotes String?  @map("mental_health_notes") // baby blues, PPD screening
+  activityNotes     String?  @map("activity_notes")
+  warningSigns      String?  @map("warning_signs")
+  createdBy         String   @map("created_by") // FK -> users.id
+  updatedBy         String?  @map("updated_by") // FK -> users.id
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  language      Language @relation(fields: [languageId], references: [id])
+  createdByUser User     @relation("PostpartumCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User?    @relation("PostpartumUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([weekNumber, languageId])
+  @@map("postpartum_week_content")
+}
+
+model FaqCategory {
+  id           String   @id @default(uuid()) // PK
+  categoryName String   @unique @map("category_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  faqs Faq[]
+
+  @@map("faq_categories")
+}
+
+model Faq {
+  id            String   @id @default(uuid()) // PK
+  faqCategoryId String   @map("faq_category_id") // FK -> faq_categories.id
+  languageId    String   @map("language_id") // FK -> languages.id
+  question      String
+  answer        String
+  displayOrder  Int      @default(0) @map("display_order")
+  isPublished   Boolean  @default(true) @map("is_published")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  category FaqCategory @relation(fields: [faqCategoryId], references: [id])
+  language Language    @relation(fields: [languageId], references: [id])
+
+  @@map("faqs")
+}
+
+model ContentSource {
+  id         String   @id @default(uuid()) // PK
+  sourceName String   @map("source_name")
+  sourceUrl  String?  @map("source_url")
+  sourceType String   @map("source_type") // 'clinical_guideline' | 'publication' | 'organization'
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  chatbotContentSources ChatbotContentSource[]
+
+  @@map("content_sources")
+}
+
+model NotificationType {
+  id        String   @id @default(uuid()) // PK
+  typeName  String   @unique @map("type_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reminderTemplates ReminderTemplate[]
+  notifications     Notification[]
+
+  @@map("notification_types")
+}
+
+model ReminderTemplate {
+  id                 String   @id @default(uuid()) // PK
+  notificationTypeId String   @map("notification_type_id") // FK -> notification_types.id
+  languageId         String   @map("language_id") // FK -> languages.id
+  channelId          String   @map("channel_id") // FK -> reminder_channels.id
+  templateTitle      String   @map("template_title")
+  templateBody       String   @map("template_body")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  notificationType NotificationType @relation(fields: [notificationTypeId], references: [id])
+  language         Language         @relation(fields: [languageId], references: [id])
+  channel          ReminderChannel  @relation(fields: [channelId], references: [id])
+
+  @@unique([notificationTypeId, languageId, channelId])
+  @@map("reminder_templates")
+}
+
+// ─── Appointment & Wellness ──────────────────────────────────────
+
+model AppointmentType {
+  id        String   @id @default(uuid()) // PK
+  typeName  String   @unique @map("type_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  appointments Appointment[]
+
+  @@map("appointment_types")
+}
+
+model AppointmentStatus {
+  id         String   @id @default(uuid()) // PK
+  statusName String   @unique @map("status_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  appointments Appointment[]
+
+  @@map("appointment_statuses")
+}
+
+model Appointment {
+  id                String   @id @default(uuid()) // PK
+  userId            String   @map("user_id") // FK -> users.id
+  appointmentTypeId String   @map("appointment_type_id") // FK -> appointment_types.id
+  statusId          String   @map("status_id") // FK -> appointment_statuses.id
+  scheduledAt       DateTime @map("scheduled_at")
+  providerName      String?  @map("provider_name")
+  locationText      String?  @map("location_text")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointmentType AppointmentType  @relation(fields: [appointmentTypeId], references: [id])
+  status          AppointmentStatus @relation(fields: [statusId], references: [id])
+
+  @@map("appointments")
+}
+
+model Vaccine {
+  id          String   @id @default(uuid()) // PK
+  vaccineName String   @unique @map("vaccine_name")
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  scheduleRules    VaccineScheduleRule[]
+  userVaccinations UserVaccination[]
+
+  @@map("vaccines")
+}
+
+model VaccineScheduleRule {
+  id              String  @id @default(uuid()) // PK
+  vaccineId       String  @map("vaccine_id") // FK -> vaccines.id
+  ruleLabel       String  @map("rule_label")
+  startWeek       Int?    @map("start_week") // CK: integer between 1 and 42
+  endWeek         Int?    @map("end_week") // CK: integer between 1 and 42
+  startDaysFromLmp Int?   @map("start_days_from_lmp") // CK: integer >= 0
+  endDaysFromLmp  Int?    @map("end_days_from_lmp") // CK: integer >= 0
+  countryCode     String? @map("country_code")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  vaccine          Vaccine           @relation(fields: [vaccineId], references: [id])
+  userVaccinations UserVaccination[]
+
+  @@map("vaccine_schedule_rules")
+}
+
+model VaccinationStatus {
+  id         String   @id @default(uuid()) // PK
+  statusName String   @unique @map("status_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  userVaccinations UserVaccination[]
+
+  @@map("vaccination_statuses")
+}
+
+model UserVaccination {
+  id              String    @id @default(uuid()) // PK
+  userId          String    @map("user_id") // FK -> users.id
+  vaccineId       String    @map("vaccine_id") // FK -> vaccines.id
+  scheduleRuleId  String?   @map("schedule_rule_id") // FK -> vaccine_schedule_rules.id
+  statusId        String    @map("status_id") // FK -> vaccination_statuses.id
+  dueDate         DateTime? @map("due_date")
+  scheduledDate   DateTime? @map("scheduled_date")
+  completedDate   DateTime? @map("completed_date")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vaccine      Vaccine              @relation(fields: [vaccineId], references: [id])
+  scheduleRule VaccineScheduleRule? @relation(fields: [scheduleRuleId], references: [id])
+  status       VaccinationStatus    @relation(fields: [statusId], references: [id])
+
+  @@unique([userId, vaccineId, scheduleRuleId])
+  @@map("user_vaccinations")
+}
+
+model WellnessMetricType {
+  id         String  @id @default(uuid()) // PK
+  metricName String  @unique @map("metric_name")
+  unitLabel  String? @map("unit_label")
+  valueType  String  @map("value_type") // 'numeric' | 'boolean' | 'text'
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  wellnessLogs WellnessLog[]
+
+  @@map("wellness_metric_types")
+}
+
+model WellnessLog {
+  id            String   @id @default(uuid()) // PK
+  userId        String   @map("user_id") // FK -> users.id
+  metricTypeId  String   @map("metric_type_id") // FK -> wellness_metric_types.id
+  logDate       DateTime @map("log_date") @db.Date
+  numericValue  Float?   @map("numeric_value")
+  booleanValue  Boolean? @map("boolean_value")
+  textValue     String?  @map("text_value")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metricType WellnessMetricType @relation(fields: [metricTypeId], references: [id])
+
+  @@map("wellness_logs")
+}
+
+// ─── Symptom & Safety ────────────────────────────────────────────
+
+model SymptomType {
+  id          String   @id @default(uuid()) // PK
+  symptomName String   @unique @map("symptom_name")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  symptomLogs      SymptomLog[]
+  escalationRules  EscalationRule[]
+
+  @@map("symptom_types")
+}
+
+model SymptomSeverityLevel {
+  id           String   @id @default(uuid()) // PK
+  severityName String   @unique @map("severity_name")
+  severityRank Int      @map("severity_rank") // CK: integer >= 1
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  symptomLogs     SymptomLog[]
+  escalationRules EscalationRule[]
+
+  @@map("symptom_severity_levels")
+}
+
+model SymptomLog {
+  id            String   @id @default(uuid()) // PK
+  userId        String   @map("user_id") // FK -> users.id
+  symptomTypeId String   @map("symptom_type_id") // FK -> symptom_types.id
+  severityId    String   @map("severity_id") // FK -> symptom_severity_levels.id
+  loggedAt      DateTime @map("logged_at")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symptomType SymptomType        @relation(fields: [symptomTypeId], references: [id])
+  severity    SymptomSeverityLevel @relation(fields: [severityId], references: [id])
+
+  @@map("symptom_logs")
+}
+
+model EscalationRule {
+  id              String   @id @default(uuid()) // PK
+  symptomTypeId   String   @map("symptom_type_id") // FK -> symptom_types.id
+  severityId      String?  @map("severity_id") // FK -> symptom_severity_levels.id
+  minOccurrences  Int?     @map("min_occurrences") // CK: integer >= 1 when present
+  windowHours     Int?     @map("window_hours") // CK: integer >= 1 when present
+  guidanceText    String   @map("guidance_text")
+  isEmergency     Boolean  @default(false) @map("is_emergency")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  symptomType SymptomType         @relation(fields: [symptomTypeId], references: [id])
+  severity    SymptomSeverityLevel? @relation(fields: [severityId], references: [id])
+
+  @@map("escalation_rules")
+}
+
+// ─── Collaboration & Behavior-Change ─────────────────────────────
+
+model Family {
+  id           String   @id @default(uuid()) // PK
+  motherUserId String   @map("mother_user_id") // FK -> users.id
+  familyName   String?  @map("family_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  mother       User           @relation("MotherFamily", fields: [motherUserId], references: [id])
+  members      FamilyMember[]
+  sharedTasks  SharedTask[]
+  sharedNotes  SharedNote[]
+  supportGoals SupportGoal[]
+
+  @@map("families")
+}
+
+model FamilyMember {
+  id           String   @id @default(uuid()) // PK
+  familyId     String   @map("family_id") // FK -> families.id
+  userId       String   @map("user_id") // FK -> users.id
+  memberRole   String   @map("member_role") // 'partner' | 'caregiver' | 'family'
+  inviteStatus String   @default("pending") @map("invite_status") // 'pending' | 'accepted' | 'declined'
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("family_members")
+}
+
+model TaskType {
+  id        String   @id @default(uuid()) // PK
+  typeName  String   @unique @map("type_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sharedTasks SharedTask[]
+
+  @@map("task_types")
+}
+
+model TaskStatus {
+  id         String   @id @default(uuid()) // PK
+  statusName String   @unique @map("status_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sharedTasks SharedTask[]
+
+  @@map("task_statuses")
+}
+
+model SharedTask {
+  id              String    @id @default(uuid()) // PK
+  familyId        String    @map("family_id") // FK -> families.id
+  taskTypeId      String    @map("task_type_id") // FK -> task_types.id
+  statusId        String    @map("status_id") // FK -> task_statuses.id
+  title           String
+  description     String?
+  dueAt           DateTime? @map("due_at")
+  createdByUserId String    @map("created_by_user_id") // FK -> users.id
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  family      Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  taskType    TaskType        @relation(fields: [taskTypeId], references: [id])
+  status      TaskStatus      @relation(fields: [statusId], references: [id])
+  createdBy   User            @relation("CreatedTasks", fields: [createdByUserId], references: [id])
+  assignments TaskAssignment[]
+  ratings     TaskRating[]
+
+  @@map("shared_tasks")
+}
+
+model TaskAssignment {
+  id               String    @id @default(uuid()) // PK
+  taskId           String    @map("task_id") // FK -> shared_tasks.id
+  assignedToUserId String    @map("assigned_to_user_id") // FK -> users.id
+  assignedAt       DateTime  @default(now()) @map("assigned_at")
+  completedAt      DateTime? @map("completed_at")
+
+  task       SharedTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignedTo User      @relation(fields: [assignedToUserId], references: [id])
+  ratings    TaskRating[]
+
+  @@map("task_assignments")
+}
+
+model TaskRating {
+  id               String   @id @default(uuid()) // PK
+  taskId           String   @map("task_id") // FK -> shared_tasks.id
+  assignmentId     String   @map("assignment_id") // FK -> task_assignments.id
+  ratedByUserId    String   @map("rated_by_user_id") // FK -> users.id (the mother)
+  ratedForUserId   String   @map("rated_for_user_id") // FK -> users.id (the partner)
+  score            Int      // 0, 10, 30, or 50
+  feedback         String?  // mother's text feedback message
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  task       SharedTask     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignment TaskAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  ratedBy    User           @relation("GivenRatings", fields: [ratedByUserId], references: [id])
+  ratedFor   User           @relation("ReceivedRatings", fields: [ratedForUserId], references: [id])
+
+  @@unique([taskId, assignmentId])
+  @@map("task_ratings")
+}
+
+model NoteVisibilitySetting {
+  id             String   @id @default(uuid()) // PK
+  visibilityName String   @unique @map("visibility_name")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  sharedNotes SharedNote[]
+
+  @@map("note_visibility_settings")
+}
+
+model SharedNote {
+  id                  String   @id @default(uuid()) // PK
+  familyId            String   @map("family_id") // FK -> families.id
+  createdByUserId     String   @map("created_by_user_id") // FK -> users.id
+  visibilitySettingId String   @map("visibility_setting_id") // FK -> note_visibility_settings.id
+  title               String
+  body                String
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  family            Family                @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy         User                  @relation("CreatedNotes", fields: [createdByUserId], references: [id])
+  visibilitySetting NoteVisibilitySetting @relation(fields: [visibilitySettingId], references: [id])
+
+  @@map("shared_notes")
+}
+
+model SupportRule {
+  id            String   @id @default(uuid()) // PK
+  ruleName      String   @map("rule_name")
+  triggerType   String   @map("trigger_type") // 'symptom' | 'week' | 'appointment' | 'mood' | 'risk_flag'
+  conditionJson Json     @map("condition_json")
+  actionJson    Json     @map("action_json")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("support_rules")
+}
+
+model SupportGoal {
+  id              String   @id @default(uuid()) // PK
+  familyId        String   @map("family_id") // FK -> families.id
+  goalName        String   @map("goal_name")
+  goalDescription String?  @map("goal_description")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  family   Family               @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  progress SupportGoalProgress[]
+
+  @@map("support_goals")
+}
+
+model SupportGoalProgress {
+  id             String   @id @default(uuid()) // PK
+  supportGoalId  String   @map("support_goal_id") // FK -> support_goals.id
+  userId         String   @map("user_id") // FK -> users.id
+  progressStatus String   @map("progress_status") // 'started' | 'in_progress' | 'completed' | 'skipped'
+  progressValue  Float?   @map("progress_value") // 0-100 percentage
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  supportGoal SupportGoal @relation(fields: [supportGoalId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@map("support_goal_progress")
+}
+
+// ─── Chatbot ─────────────────────────────────────────────────────
+
+model ChatbotSession {
+  id        String    @id @default(uuid()) // PK
+  userId    String    @map("user_id") // FK -> users.id
+  mode      String    // 'mother' | 'partner' | 'shared' | 'admin_safe'
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages          ChatbotMessage[]
+  escalationEvents  ChatbotEscalationEvent[]
+
+  @@map("chatbot_sessions")
+}
+
+model ChatbotMessage {
+  id         String   @id @default(uuid()) // PK
+  sessionId  String   @map("session_id") // FK -> chatbot_sessions.id
+  senderType String   @map("sender_type") // 'user' | 'bot' | 'system'
+  messageText String  @map("message_text")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  session ChatbotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chatbot_messages")
+}
+
+model ChatbotIntent {
+  id         String   @id @default(uuid()) // PK
+  intentName String   @unique @map("intent_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  escalationEvents  ChatbotEscalationEvent[]
+  contentSources    ChatbotContentSource[]
+
+  @@map("chatbot_intents")
+}
+
+model ChatbotEscalationEvent {
+  id            String   @id @default(uuid()) // PK
+  sessionId     String   @map("session_id") // FK -> chatbot_sessions.id
+  intentId      String?  @map("intent_id") // FK -> chatbot_intents.id
+  escalationType String  @map("escalation_type") // 'emergency' | 'clinical_guidance' | 'disclaimer'
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  session ChatbotSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  intent  ChatbotIntent? @relation(fields: [intentId], references: [id])
+
+  @@map("chatbot_escalation_events")
+}
+
+model ChatbotContentSource {
+  intentId        String @map("intent_id") // PK, FK -> chatbot_intents.id
+  contentSourceId String @map("content_source_id") // PK, FK -> content_sources.id
+
+  intent        ChatbotIntent @relation(fields: [intentId], references: [id])
+  contentSource ContentSource @relation(fields: [contentSourceId], references: [id])
+
+  @@id([intentId, contentSourceId])
+  @@map("chatbot_content_sources")
+}
+
+// ─── Notification & Audit ────────────────────────────────────────
+
+model NotificationStatus {
+  id         String   @id @default(uuid()) // PK
+  statusName String   @unique @map("status_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  notifications Notification[]
+
+  @@map("notification_statuses")
+}
+
+model Notification {
+  id                 String    @id @default(uuid()) // PK
+  userId             String    @map("user_id") // FK -> users.id
+  notificationTypeId String    @map("notification_type_id") // FK -> notification_types.id
+  statusId           String    @map("status_id") // FK -> notification_statuses.id
+  channelId          String    @map("channel_id") // FK -> reminder_channels.id
+  scheduledFor       DateTime  @map("scheduled_for")
+  sentAt             DateTime? @map("sent_at")
+  readAt             DateTime? @map("read_at")
+  payloadJson        Json?     @map("payload_json")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationType NotificationType @relation(fields: [notificationTypeId], references: [id])
+  status           NotificationStatus @relation(fields: [statusId], references: [id])
+  channel          ReminderChannel  @relation(fields: [channelId], references: [id])
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) // PK
+  actorUserId   String   @map("actor_user_id") // FK -> users.id
+  entityName    String   @map("entity_name")
+  entityId      String   @map("entity_id")
+  actionName    String   @map("action_name")
+  changeSummary String   @map("change_summary")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model AdminContentAuditLog {
+  id            String   @id @default(uuid()) // PK
+  actorUserId   String   @map("actor_user_id") // FK -> users.id
+  entityName    String   @map("entity_name")
+  entityId      String   @map("entity_id")
+  actionName    String   @map("action_name")
+  changeSummary String   @map("change_summary")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@map("admin_content_audit_logs")
+}
+
+// ─── Meal Planner ───────────────────────────────────────────────
+
+model Meal {
+  id        String   @id @default(uuid())
+  name      String
+  mealType  String   @map("meal_type") // BREAKFAST | LUNCH | SNACK | DINNER
+  trimester String   // FIRST | SECOND | THIRD
+  calories  Int
+  folate    Float    // mcg
+  iron      Float    // mg
+  calcium   Float    // mg
+  diet      String   @default("veg") // veg | non-veg
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("meals")
+}

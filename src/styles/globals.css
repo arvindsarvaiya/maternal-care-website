@@ -1,0 +1,632 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════════════════════════════
+   MATERNALCARE — INDIAN MANDALA DESIGN SYSTEM
+   Inspired by traditional Indian mandala art, rangoli patterns,
+   and henna (mehndi) motifs — crafted for Indian maternal care.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ─── Design Tokens ─── */
+:root {
+    /* Spacing scale */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
+
+    /* Typography scale */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+    --text-4xl: 2.25rem;
+
+    /* Border radius */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-base: 200ms ease;
+    --transition-slow: 300ms ease;
+
+    /* Mandala colors (alias for the palette) */
+    --mandala-velvet: #71238C;
+    --mandala-razzmatazz: #E44474;
+    --mandala-caramel: #DEA769;
+    --mandala-wine: #701F2D;
+    --mandala-ochre: #C24315;
+    --mandala-gold: #DEA769;
+}
+
+/* ─── Mandala SVG Patterns (Background Repeats) ─── */
+.mandala-pattern-dots {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%2371238C' opacity='0.08'/%3E%3Ccircle cx='30' cy='0' r='1.5' fill='%2371238C' opacity='0.06'/%3E%3Ccircle cx='30' cy='60' r='1.5' fill='%2371238C' opacity='0.06'/%3E%3Ccircle cx='0' cy='30' r='1.5' fill='%2371238C' opacity='0.06'/%3E%3Ccircle cx='60' cy='30' r='1.5' fill='%2371238C' opacity='0.06'/%3E%3Ccircle cx='15' cy='15' r='1' fill='%23DEA769' opacity='0.08'/%3E%3Ccircle cx='45' cy='15' r='1' fill='%23DEA769' opacity='0.08'/%3E%3Ccircle cx='15' cy='45' r='1' fill='%23DEA769' opacity='0.08'/%3E%3Ccircle cx='45' cy='45' r='1' fill='%23DEA769' opacity='0.08'/%3E%3C/svg%3E");
+    background-size: 60px 60px;
+}
+
+.mandala-pattern-rangoli {
+    background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%2371238C' stroke-width='0.5' opacity='0.08'%3E%3Ccircle cx='40' cy='40' r='38'/%3E%3Ccircle cx='40' cy='40' r='28'/%3E%3Ccircle cx='40' cy='40' r='18'/%3E%3Ccircle cx='40' cy='40' r='8'/%3E%3Cline x1='40' y1='2' x2='40' y2='78'/%3E%3Cline x1='2' y1='40' x2='78' y2='40'/%3E%3Cline x1='13.4' y1='13.4' x2='66.6' y2='66.6'/%3E%3Cline x1='66.6' y1='13.4' x2='13.4' y2='66.6'/%3E%3C/g%3E%3Ccircle cx='40' cy='40' r='3' fill='%23E44474' opacity='0.12'/%3E%3Ccircle cx='40' cy='12' r='2' fill='%23DEA769' opacity='0.1'/%3E%3Ccircle cx='40' cy='68' r='2' fill='%23DEA769' opacity='0.1'/%3E%3Ccircle cx='12' cy='40' r='2' fill='%23DEA769' opacity='0.1'/%3E%3Ccircle cx='68' cy='40' r='2' fill='%23DEA769' opacity='0.1'/%3E%3Ccircle cx='20.2' cy='20.2' r='2' fill='%23C24315' opacity='0.08'/%3E%3Ccircle cx='59.8' cy='20.2' r='2' fill='%23C24315' opacity='0.08'/%3E%3Ccircle cx='20.2' cy='59.8' r='2' fill='%23C24315' opacity='0.08'/%3E%3Ccircle cx='59.8' cy='59.8' r='2' fill='%23C24315' opacity='0.08'/%3E%3C/svg%3E");
+    background-size: 80px 80px;
+}
+
+.mandala-pattern-paisley {
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%2371238C' stroke-width='0.4' opacity='0.05'%3E%3Cpath d='M50 5 Q60 30 50 50 Q40 70 50 95'/%3E%3Cpath d='M5 50 Q30 40 50 50 Q70 60 95 50'/%3E%3Cpath d='M15 15 Q35 35 50 50 Q65 65 85 85'/%3E%3Cpath d='M85 15 Q65 35 50 50 Q35 65 15 85'/%3E%3Ccircle cx='50' cy='50' r='15'/%3E%3Ccircle cx='50' cy='50' r='30'/%3E%3Ccircle cx='50' cy='50' r='42'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 100px 100px;
+}
+
+/* ─── Decorative Mandala Corner Elements ─── */
+.mandala-corner-tl {
+    position: relative;
+}
+
+.mandala-corner-tl::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle at 0 0, rgba(113, 35, 140, 0.06) 0%, transparent 70%);
+    border-radius: 0 0 100% 0;
+    pointer-events: none;
+}
+
+.mandala-corner-br {
+    position: relative;
+}
+
+.mandala-corner-br::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle at 100% 100%, rgba(222, 167, 105, 0.08) 0%, transparent 70%);
+    border-radius: 100% 0 0 0;
+    pointer-events: none;
+}
+
+/* ─── Decorative Divider (Henna / Mehndi style) ─── */
+.mandala-divider {
+    position: relative;
+    height: 2px;
+    border: none;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(113, 35, 140, 0.1) 10%,
+            rgba(222, 167, 105, 0.4) 30%,
+            rgba(228, 68, 116, 0.5) 50%,
+            rgba(222, 167, 105, 0.4) 70%,
+            rgba(113, 35, 140, 0.1) 90%,
+            transparent 100%);
+    margin: var(--space-6) 0;
+}
+
+.mandala-divider::before,
+.mandala-divider::after {
+    content: '◆';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 8px;
+    color: rgba(222, 167, 105, 0.6);
+}
+
+.mandala-divider::before {
+    left: 45%;
+}
+
+.mandala-divider::after {
+    right: 45%;
+}
+
+/* ─── Base Layer ─── */
+@layer base {
+
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-surface-50 text-velvet-900 font-body;
+        font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+        line-height: 1.6;
+    }
+
+    .dark body,
+    .dark {
+        @apply bg-velvet-950 text-surface-100;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        @apply font-display;
+        letter-spacing: -0.01em;
+    }
+
+    h1 {
+        @apply text-4xl font-normal;
+    }
+
+    h2 {
+        @apply text-3xl font-normal;
+    }
+
+    h3 {
+        @apply text-2xl font-normal;
+    }
+
+    h4 {
+        @apply text-xl font-normal;
+    }
+
+    p {
+        @apply leading-relaxed;
+    }
+
+    a {
+        @apply text-primary-600 hover:text-primary-700 transition-colors duration-200;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .dark a {
+        @apply text-primary-400 hover:text-primary-300;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+        @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+    }
+
+    .dark *:focus-visible {
+        @apply ring-primary-400 ring-offset-velvet-950;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+/* ─── Component Layer ─── */
+@layer components {
+
+    /* ── Card ── */
+    .card {
+        @apply bg-white rounded-xl border border-surface-200 shadow-soft p-6;
+        transition: all var(--transition-base);
+    }
+
+    .card:hover {
+        @apply shadow-card;
+        border-color: rgba(222, 167, 105, 0.3);
+    }
+
+    .dark .card {
+        @apply bg-velvet-900/80 border-velvet-800 shadow-none;
+    }
+
+    .dark .card:hover {
+        @apply shadow-elevated border-velvet-700;
+    }
+
+    /* Card calm variant (primary accent left border) */
+    .card-calm {
+        @apply card border-l-4;
+        border-left-color: var(--mandala-velvet);
+    }
+
+    /* Card gold variant */
+    .card-gold {
+        @apply card border-l-4;
+        border-left-color: var(--mandala-caramel);
+    }
+
+    /* ── Buttons ── */
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+        letter-spacing: 0.01em;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Button shimmer effect */
+    .btn::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.15) 50%,
+                transparent 100%);
+        background-size: 200% 100%;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .btn:hover::after {
+        opacity: 1;
+        animation: shimmer 1.5s ease-in-out;
+    }
+
+    .btn-primary {
+        @apply btn bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800;
+        box-shadow: 0 2px 8px rgba(113, 35, 140, 0.25);
+    }
+
+    .btn-primary:hover {
+        box-shadow: 0 4px 16px rgba(113, 35, 140, 0.35);
+    }
+
+    .dark .btn-primary {
+        @apply bg-primary-500 hover:bg-primary-600;
+    }
+
+    .btn-secondary {
+        @apply btn bg-surface-100 text-velvet-800 hover:bg-surface-200 active:bg-surface-300;
+    }
+
+    .dark .btn-secondary {
+        @apply bg-velvet-800 text-surface-200 hover:bg-velvet-700;
+    }
+
+    .btn-outline {
+        @apply btn border-2 border-primary-400 text-primary-700 hover:bg-primary-50 active:bg-primary-100;
+    }
+
+    .dark .btn-outline {
+        @apply border-primary-500 text-primary-300 hover:bg-primary-950;
+    }
+
+    .btn-ghost {
+        @apply btn text-surface-600 hover:bg-surface-100 active:bg-surface-200;
+    }
+
+    .dark .btn-ghost {
+        @apply text-surface-300 hover:bg-velvet-800;
+    }
+
+    .btn-danger {
+        @apply btn bg-danger-600 text-white hover:bg-danger-700 active:bg-danger-800;
+    }
+
+    .btn-gold {
+        @apply btn bg-caramel-500 text-velvet-900 hover:bg-caramel-600 active:bg-caramel-700;
+        box-shadow: 0 2px 8px rgba(222, 167, 105, 0.3);
+    }
+
+    .btn-sm {
+        @apply px-3 py-1.5 text-xs;
+    }
+
+    .btn-lg {
+        @apply px-7 py-3.5 text-base;
+    }
+
+    /* ── Form Inputs ── */
+    .input {
+        @apply w-full px-4 py-2.5 rounded-lg border border-surface-300 bg-white text-velvet-900 text-sm placeholder:text-surface-400 transition-all duration-200 focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-200;
+    }
+
+    .dark .input {
+        @apply bg-velvet-900 border-velvet-700 text-surface-100 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-900;
+    }
+
+    .input-error {
+        @apply border-danger-400 focus:border-danger-500 focus:ring-danger-200;
+    }
+
+    .label {
+        @apply block text-sm font-medium text-velvet-700 mb-1.5;
+    }
+
+    .dark .label {
+        @apply text-surface-300;
+    }
+
+    /* ── Badges ── */
+    .badge {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    }
+
+    .badge-primary {
+        @apply badge bg-primary-100 text-primary-700;
+    }
+
+    .badge-accent {
+        @apply badge bg-razzmatazz-100 text-razzmatazz-700;
+    }
+
+    .badge-gold {
+        @apply badge bg-caramel-100 text-caramel-700;
+    }
+
+    .badge-wine {
+        @apply badge bg-wine-100 text-wine-700;
+    }
+
+    .badge-ochre {
+        @apply badge bg-ochre-100 text-ochre-700;
+    }
+
+    .badge-warning {
+        @apply badge bg-warning-100 text-warning-700;
+    }
+
+    .badge-danger {
+        @apply badge bg-danger-100 text-danger-700;
+    }
+
+    .badge-success {
+        @apply badge bg-success-100 text-success-700;
+    }
+
+    /* ── Progress Bar ── */
+    .progress-bar {
+        @apply w-full h-2 rounded-full bg-surface-200 overflow-hidden;
+    }
+
+    .dark .progress-bar {
+        @apply bg-velvet-800;
+    }
+
+    .progress-bar-fill {
+        @apply h-full rounded-full transition-all duration-500 ease-out;
+    }
+
+    .progress-bar-fill-primary {
+        @apply progress-bar-fill bg-primary-500;
+    }
+
+    .progress-bar-fill-accent {
+        @apply progress-bar-fill bg-razzmatazz-500;
+    }
+
+    .progress-bar-fill-gold {
+        @apply progress-bar-fill bg-caramel-500;
+    }
+
+    .progress-bar-fill-ochre {
+        @apply progress-bar-fill bg-ochre-500;
+    }
+
+    /* ── Divider ── */
+    .divider {
+        @apply border-t border-surface-200 my-6;
+    }
+
+    .dark .divider {
+        @apply border-velvet-800;
+    }
+
+    /* ── Empty State ── */
+    .empty-state {
+        @apply flex flex-col items-center justify-center py-16 px-4 text-center;
+    }
+
+    .empty-state-icon {
+        @apply w-16 h-16 text-surface-300 mb-4;
+    }
+
+    .empty-state-title {
+        @apply text-lg font-medium text-velvet-600 mb-2;
+    }
+
+    .empty-state-text {
+        @apply text-sm text-surface-500 max-w-sm;
+    }
+
+    /* ── Tooltip ── */
+    .tooltip {
+        @apply absolute z-50 px-3 py-1.5 rounded-md bg-velvet-800 text-white text-xs shadow-elevated pointer-events-none;
+    }
+
+    .dark .tooltip {
+        @apply bg-surface-200 text-velvet-800;
+    }
+
+    /* ── Chat Bubbles ── */
+    .chat-bubble-user {
+        @apply bg-primary-100 text-primary-900 rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%] ml-auto;
+    }
+
+    .dark .chat-bubble-user {
+        @apply bg-primary-800 text-primary-100;
+    }
+
+    .chat-bubble-bot {
+        @apply bg-surface-100 text-velvet-800 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[80%];
+    }
+
+    .dark .chat-bubble-bot {
+        @apply bg-velvet-800 text-surface-200;
+    }
+
+    .chat-bubble-system {
+        @apply bg-caramel-50 text-caramel-800 rounded-2xl rounded-bl-md px-4 py-2.5 max-w-[80%] border border-caramel-200;
+    }
+
+    .dark .chat-bubble-system {
+        @apply bg-caramel-900/50 text-caramel-200 border-caramel-800;
+    }
+
+    /* ── Timeline ── */
+    .timeline-item {
+        @apply relative pl-8 pb-6 border-l-2 border-surface-200;
+    }
+
+    .timeline-item:last-child {
+        @apply border-l-transparent;
+    }
+
+    .timeline-dot {
+        @apply absolute -left-[9px] w-4 h-4 rounded-full border-2 border-white bg-primary-400;
+    }
+
+    .dark .timeline-dot {
+        @apply border-velvet-900;
+    }
+
+    .timeline-dot-completed {
+        @apply bg-primary-600;
+    }
+
+    .timeline-dot-current {
+        @apply bg-razzmatazz-400 ring-2 ring-razzmatazz-200;
+    }
+
+    /* ── Mandala Decorative Blobs (for hero / section backgrounds) ── */
+    .mandala-blob-primary {
+        background: radial-gradient(ellipse at center, rgba(113, 35, 140, 0.08) 0%, transparent 70%);
+    }
+
+    .mandala-blob-gold {
+        background: radial-gradient(ellipse at center, rgba(222, 167, 105, 0.1) 0%, transparent 70%);
+    }
+
+    .mandala-blob-razz {
+        background: radial-gradient(ellipse at center, rgba(228, 68, 116, 0.06) 0%, transparent 70%);
+    }
+
+    /* ── Rangoli Dot Grid ── */
+    .rangoli-dots {
+        background-image: radial-gradient(circle, rgba(113, 35, 140, 0.08) 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+
+    /* ── Glass Panel ── */
+    .glass-panel {
+        @apply bg-white/70 backdrop-blur-md border border-surface-200/50 rounded-2xl shadow-soft;
+    }
+
+    .dark .glass-panel {
+        @apply bg-velvet-900/70 border-velvet-800/50;
+    }
+}
+
+/* ─── Utility Layer ─── */
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    .scrollbar-thin {
+        scrollbar-width: thin;
+        scrollbar-color: var(--mandala-velvet) transparent;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background-color: rgba(113, 35, 140, 0.2);
+        border-radius: 9999px;
+    }
+
+    /* Gradient text utilities */
+    .text-gradient-mandala {
+        background: linear-gradient(135deg, #71238C 0%, #E44474 50%, #DEA769 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .text-gradient-gold {
+        background: linear-gradient(135deg, #DEA769 0%, #C24315 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    /* Border gradient */
+    .border-gradient-mandala {
+        border-image: linear-gradient(135deg, #71238C, #E44474, #DEA769) 1;
+    }
+}
+
+/* ─── Hero Section Wave Divider ─── */
+.hero-wave-divider {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    line-height: 0;
+    pointer-events: none;
+}
+
+.hero-wave-divider svg {
+    display: block;
+    width: 100%;
+    height: 80px;
+}
+
+/* ─── Mandala Spin Animation ─── */
+@keyframes mandalaSpin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes shimmer {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* ─── Figma Landing Page ─── */
+.landing-step-number {
+    background: linear-gradient(180deg, #cdb4db 0%, #ffffff 77.135%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
