@@ -44,19 +44,14 @@ export default function FactsAndMythsPage() {
     const prevFactsSlide = () => setFactsSlide((p) => (p - 1 + totalFactSlides) % totalFactSlides);
     const getCurrentFacts = () => facts.slice(factsSlide * factsPerPage, factsSlide * factsPerPage + factsPerPage);
 
-    // Myths Carousel
+    // Myths stacked cards
     const [currentMythIndex, setCurrentMythIndex] = useState(0);
-    const [isAnimating, setIsAnimating] = useState(false);
+    const visibleMyths = [0, 1, 2].map((offset) => {
+        const mythIndex = (currentMythIndex + offset) % myths.length;
+        return { ...myths[mythIndex], mythIndex, offset };
+    });
 
-    const goToMyth = (index: number) => {
-        if (isAnimating) return;
-        setIsAnimating(true);
-        setTimeout(() => {
-            setCurrentMythIndex(index);
-            setIsAnimating(false);
-        }, 280);
-    };
-
+    const goToMyth = (index: number) => setCurrentMythIndex(index);
     const nextMyth = () => goToMyth((currentMythIndex + 1) % myths.length);
 
     return (
@@ -145,9 +140,8 @@ export default function FactsAndMythsPage() {
                                 <button
                                     key={i}
                                     onClick={() => setFactsSlide(i)}
-                                    className={`h-3 rounded-full transition-all duration-300 ${
-                                        factsSlide === i ? 'bg-[#9511F4] w-7' : 'bg-white w-3 opacity-60'
-                                    }`}
+                                    className={`h-3 rounded-full transition-all duration-300 ${factsSlide === i ? 'bg-[#9511F4] w-7' : 'bg-white w-3 opacity-60'
+                                        }`}
                                     aria-label={`Slide ${i + 1}`}
                                 />
                             ))}
@@ -164,75 +158,88 @@ export default function FactsAndMythsPage() {
                         Busting traditional misconceptions with science.
                     </p>
 
-                    <div className="relative max-w-xl mx-auto">
-                        {/* Card */}
-                        <div
-                            className="rounded-3xl overflow-hidden transition-all duration-280"
-                            style={{
-                                background: '#FFF9F0',
-                                border: '2px solid #FFD359',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.07)',
-                                opacity: isAnimating ? 0 : 1,
-                                transform: isAnimating ? 'translateX(24px)' : 'translateX(0)',
-                                transition: 'opacity 0.28s ease, transform 0.28s ease',
-                            }}
-                        >
-                            <div className="flex items-stretch gap-4 p-7">
-                                {/* Text */}
-                                <div className="flex-1 flex flex-col gap-5">
-                                    {/* Myth row */}
-                                    <div>
-                                        <span className="inline-block px-4 py-1 rounded-full text-white text-xs font-bold tracking-wide mb-2"
-                                            style={{ background: '#FF6B9D' }}>
-                                            Myth :
-                                        </span>
-                                        <p className="text-sm text-[#aaa] line-through leading-relaxed">
-                                            {myths[currentMythIndex].myth}
-                                        </p>
-                                    </div>
+                    <div className="relative max-w-2xl mx-auto px-10 sm:px-16">
+                        <div className="relative grid min-h-[320px] place-items-center [grid-template-areas:'stack']">
+                            {visibleMyths.map((item) => {
+                                const isActive = item.offset === 0;
+                                const stackStyles = [
+                                    { transform: 'translate(0, 0) rotate(0deg) scale(1)', opacity: 1, zIndex: 30 },
+                                    { transform: 'translate(-3.5rem, 0.75rem) rotate(-3deg) scale(0.86)', opacity: 0.7, zIndex: 20 },
+                                    { transform: 'translate(-6.75rem, 1.5rem) rotate(-6deg) scale(0.72)', opacity: 0.45, zIndex: 10 },
+                                ][item.offset];
 
-                                    {/* Fact row */}
-                                    <div>
-                                        <span className="inline-block px-4 py-1 rounded-full text-white text-xs font-bold tracking-wide mb-2"
-                                            style={{ background: '#9511F4' }}>
-                                            Fact :
-                                        </span>
-                                        <p className="text-sm text-[#444] leading-relaxed">
-                                            {myths[currentMythIndex].fact}
-                                        </p>
-                                    </div>
-                                </div>
+                                return (
+                                    <article
+                                        key={item.mythIndex}
+                                        className="relative w-full [grid-area:stack] rounded-3xl overflow-hidden transition-all duration-500 ease-in-out before:absolute before:inset-[-18px] before:-z-10 before:rounded-[36px] before:bg-[radial-gradient(#FFD359_1px,transparent_1px)] before:bg-[length:6px_6px] after:absolute after:inset-0 after:-z-10 after:rounded-3xl after:bg-white"
+                                        style={{
+                                            ...stackStyles,
+                                            background: '#FFF9F0',
+                                            border: '2px solid #FFD359',
+                                            boxShadow: '0 4px 20px rgba(0,0,0,0.07)',
+                                            pointerEvents: isActive ? 'auto' : 'none',
+                                        }}
+                                    >
+                                        <header className="flex items-center justify-between px-5 py-3" style={{ background: '#FFE7A8' }}>
+                                            <h3 className="m-0 text-base font-semibold text-[#0A4A9B]">
+                                                Myth {item.mythIndex + 1}
+                                            </h3>
+                                            <button
+                                                onClick={nextMyth}
+                                                aria-label="Next myth"
+                                                className="size-8 rounded-full flex items-center justify-center transition-transform hover:rotate-90 cursor-pointer"
+                                                style={{ background: '#9511F4' }}
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M9 18l6-6-6-6" />
+                                                </svg>
+                                            </button>
+                                        </header>
 
-                                {/* Illustration */}
-                                <div className="flex items-center justify-center w-16 flex-shrink-0">
-                                    <span className="text-5xl select-none" role="img" aria-label="icon">
-                                        {myths[currentMythIndex].icon}
-                                    </span>
-                                </div>
-                            </div>
+                                        <div className="flex items-stretch gap-4 p-7">
+                                            {/* Text */}
+                                            <div className="flex-1 flex flex-col gap-5">
+                                                {/* Myth row */}
+                                                <div>
+                                                    <span className="inline-block px-4 py-1 rounded-full text-white text-xs font-bold tracking-wide mb-2" style={{ background: '#FF6B9D' }}>
+                                                        Myth :
+                                                    </span>
+                                                    <p className="text-sm text-[#aaa] line-through leading-relaxed">
+                                                        {item.myth}
+                                                    </p>
+                                                </div>
+
+                                                {/* Fact row */}
+                                                <div>
+                                                    <span className="inline-block px-4 py-1 rounded-full text-white text-xs font-bold tracking-wide mb-2" style={{ background: '#9511F4' }}>
+                                                        Fact :
+                                                    </span>
+                                                    <p className="text-sm text-[#444] leading-relaxed">
+                                                        {item.fact}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Illustration */}
+                                            <div className="flex items-center justify-center w-16 flex-shrink-0">
+                                                <span className="text-5xl select-none" role="img" aria-label="icon">
+                                                    {item.icon}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </article>
+                                );
+                            })}
                         </div>
 
-                        {/* Next arrow — bottom-right of card */}
-                        <button
-                            onClick={nextMyth}
-                            aria-label="Next myth"
-                            className="absolute -bottom-4 right-4 w-11 h-11 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105"
-                            style={{ background: '#9511F4' }}
-                        >
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M9 18l6-6-6-6" />
-                            </svg>
-                        </button>
-
                         {/* Dots */}
-                        <div className="flex justify-center gap-2 mt-10">
+                        <div className="flex justify-center gap-2 mt-8">
                             {myths.map((_, i) => (
                                 <button
                                     key={i}
                                     onClick={() => goToMyth(i)}
-                                    className={`h-3 rounded-full transition-all duration-300 ${
-                                        currentMythIndex === i ? 'bg-[#9511F4] w-7' : 'bg-[#E0E0E0] w-3'
-                                    }`}
+                                    className={`h-3 rounded-full transition-all duration-300 ${currentMythIndex === i ? 'bg-[#9511F4] w-7' : 'bg-[#E0E0E0] w-3'
+                                        }`}
                                     aria-label={`Myth ${i + 1}`}
                                 />
                             ))}

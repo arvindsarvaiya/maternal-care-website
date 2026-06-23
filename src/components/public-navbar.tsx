@@ -49,7 +49,7 @@ export function PublicNavbar() {
     return (
         <header
             ref={headerRef}
-            className="fixed top-4 left-1/2 z-50 mx-auto flex w-[calc(100%-32px)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-2xl bg-white/95 backdrop-blur-sm px-4 py-2 border border-surface-200 shadow-sm md:top-6 md:rounded-3xl lg:top-7"
+            className="fixed top-4 left-1/2 z-50 mx-auto flex w-[calc(100%-32px)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-2xl bg-white/55 backdrop-blur-xl px-4 py-2 border border-white/45 shadow-sm md:top-6 md:rounded-3xl lg:top-7"
         >
             {/* Logo */}
             <Link href="/home" className="no-underline shrink-0">
@@ -84,7 +84,7 @@ export function PublicNavbar() {
                 <LanguageButton />
                 <Link
                     href="/login"
-                    className="inline-flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-base font-medium tracking-[-0.084px] transition-colors duration-300 bg-white border border-surface-200 text-[#56616b] hover:bg-surface-50 no-underline"
+                    className="inline-flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-base font-medium tracking-[-0.084px] transition-colors duration-300 bg-white/55 border border-white/50 text-[#56616b] hover:bg-white/80 no-underline"
                 >
                     {n('signIn')}
                 </Link>
@@ -101,7 +101,7 @@ export function PublicNavbar() {
                 <LanguageButton />
                 <button
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="size-9 inline-flex items-center justify-center rounded-xl bg-white border border-surface-200 text-[#56616b] hover:bg-surface-50 transition-colors cursor-pointer"
+                    className="size-9 inline-flex items-center justify-center rounded-xl bg-white/55 border border-white/50 text-[#56616b] hover:bg-white/80 transition-colors cursor-pointer"
                     aria-label="Toggle menu"
                 >
                     {mobileMenuOpen ? (
@@ -118,7 +118,7 @@ export function PublicNavbar() {
 
             {/* Mobile Menu Dropdown */}
             {mobileMenuOpen && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-elevated border border-surface-200 py-4 px-2 lg:hidden z-50">
+                <div className="absolute top-full left-0 right-0 mt-3 bg-white/75 backdrop-blur-xl rounded-3xl shadow-elevated border border-white/50 py-4 px-2 lg:hidden z-50">
                     <nav>
                         <ul className="flex flex-col">
                             {navLinks.map((link) => (
