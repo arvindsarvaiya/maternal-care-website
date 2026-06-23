@@ -10,7 +10,7 @@ import { formatWeekKnowledgeForJourneyForLocale, formatPersonalizedWeekKnowledge
 import { calcPregnancyWeek } from '@/lib/pregnancy-calculator';
 import { calcPostpartumWeek, getRecoveryPhase, getRecoveryPhaseLabel, RECOVERY_PHASE_BADGES, getRecoveryPhase as getRecoveryPhaseFn } from '@/lib/postpartum-calculator';
 import { formatSourceLegend, getSourceAbbreviations } from '@/lib/source-abbreviations';
-import { formatPostpartumWeekKnowledgeForJourney } from '@/lib/postpartum-knowledge';
+import { formatPostpartumWeekKnowledgeForJourneyForLocale } from '@/lib/postpartum-knowledge-i18n';
 import Link from 'next/link';
 import {
     ChevronLeft,
@@ -309,7 +309,7 @@ export default function WeeklyJourneyPage() {
             };
         }
     } else if (contentType === 'postpartum') {
-        const fallback = formatPostpartumWeekKnowledgeForJourney(selectedWeek);
+        const fallback = formatPostpartumWeekKnowledgeForJourneyForLocale(selectedWeek, locale);
         if (fallback) {
             weekData = {
                 id: `fallback-pp-week-${selectedWeek}`,
