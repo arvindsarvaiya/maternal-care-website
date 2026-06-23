@@ -13,6 +13,21 @@ export interface RuleContext {
     upcomingAppointments?: { id: string; scheduledAt: Date; type: string }[];
     highRiskFlag?: boolean;
     partnerAvailable?: boolean;
+    medicalConditions?: {
+        anemia: boolean;
+        diabetes: boolean;
+        hypertension: boolean;
+        highBP: boolean;
+        lowBP: boolean;
+        thyroidDisorder: boolean;
+        pcos: boolean;
+        asthma: boolean;
+        heartDisease: boolean;
+        kidneyIssues: boolean;
+        epilepsy: boolean;
+        highRiskPregnancy: boolean;
+        depressionAnxiety: boolean;
+    };
 }
 
 export interface RuleOutput {
@@ -76,11 +91,11 @@ export const rules: RuleDefinition[] = [
         }),
     },
 
-    // ─── Anemia / Iron ───
+    // ─── Anemia / Iron (symptom-based OR medical condition) ───
     {
         name: 'anemia_support',
         condition: (ctx) => {
-            return ctx.symptoms?.some(s => s.name.toLowerCase().includes('anemia')) || ctx.highRiskFlag === true || false;
+            return ctx.symptoms?.some(s => s.name.toLowerCase().includes('anemia')) || ctx.highRiskFlag === true || ctx.medicalConditions?.anemia === true || false;
         },
         output: (ctx) => ({
             type: 'guidance',
@@ -93,7 +108,7 @@ export const rules: RuleDefinition[] = [
     {
         name: 'anemia_meal_partner',
         condition: (ctx) => {
-            return ctx.symptoms?.some(s => s.name.toLowerCase().includes('anemia')) || ctx.highRiskFlag === true || false;
+            return ctx.symptoms?.some(s => s.name.toLowerCase().includes('anemia')) || ctx.highRiskFlag === true || ctx.medicalConditions?.anemia === true || false;
         },
         output: (ctx) => ({
             type: 'partner_prompt',
@@ -322,6 +337,194 @@ export const rules: RuleDefinition[] = [
             },
         }),
     },
+
+    // ─── Medical Condition: Diabetes ───
+    {
+        name: 'diabetes_blood_sugar_guidance',
+        condition: (ctx) => ctx.medicalConditions?.diabetes === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Diabetes: Blood Sugar Monitoring',
+            description: 'Monitor your blood sugar regularly as recommended by your doctor. Eat balanced meals with complex carbs, lean proteins, and healthy fats. Avoid sugary drinks and processed foods. Keep your glucose meter and supplies accessible.',
+            action: 'diabetes_guidance',
+        }),
+    },
+    {
+        name: 'diabetes_partner_support',
+        condition: (ctx) => ctx.medicalConditions?.diabetes === true,
+        output: () => ({
+            type: 'partner_prompt',
+            priority: 'high',
+            title: 'Partner: Diabetes Meal Support',
+            description: 'Help prepare balanced, low-glycemic meals. Avoid bringing sugary snacks home. Remind her about blood sugar checks. Know the signs of high and low blood sugar.',
+            action: 'partner_diabetes_support',
+            supportAction: {
+                category: 'meal_support',
+                suggestion: 'Prepare balanced low-glycemic meals and avoid sugary snacks',
+            },
+        }),
+    },
+
+    // ─── Medical Condition: Hypertension / High BP ───
+    {
+        name: 'hypertension_bp_guidance',
+        condition: (ctx) => ctx.medicalConditions?.hypertension === true || ctx.medicalConditions?.highBP === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Hypertension: Blood Pressure Care',
+            description: 'Monitor your blood pressure daily. Reduce salt intake. Avoid processed and packaged foods. Stay hydrated and get adequate rest. Do not skip your prenatal appointments as BP monitoring is critical.',
+            action: 'hypertension_guidance',
+        }),
+    },
+    {
+        name: 'hypertension_stress_partner',
+        condition: (ctx) => ctx.medicalConditions?.hypertension === true || ctx.medicalConditions?.highBP === true,
+        output: () => ({
+            type: 'partner_prompt',
+            priority: 'high',
+            title: 'Partner: Help Reduce Stress',
+            description: 'Help create a calm, low-stress environment. Encourage rest and relaxation. Prepare low-sodium meals. Accompany her to BP check appointments.',
+            action: 'partner_hypertension_support',
+            supportAction: {
+                category: 'emotional_support',
+                suggestion: 'Create a calm environment and prepare low-sodium meals',
+            },
+        }),
+    },
+
+    // ─── Medical Condition: Low BP ───
+    {
+        name: 'lowbp_guidance',
+        condition: (ctx) => ctx.medicalConditions?.lowBP === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'medium',
+            title: 'Low Blood Pressure: Stay Safe',
+            description: 'Stand up slowly from sitting or lying positions. Stay well hydrated and increase salt intake slightly if advised by your doctor. Eat smaller, more frequent meals to prevent post-meal drops in BP.',
+            action: 'lowbp_guidance',
+        }),
+    },
+
+    // ─── Medical Condition: Thyroid Disorder ───
+    {
+        name: 'thyroid_medication_reminder',
+        condition: (ctx) => ctx.medicalConditions?.thyroidDisorder === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Thyroid: Medication Consistency',
+            description: 'Take your thyroid medication at the same time every day, preferably on an empty stomach. Do not skip doses. Regular thyroid level checks are important during pregnancy as dosage may need adjustment.',
+            action: 'thyroid_guidance',
+        }),
+    },
+
+    // ─── Medical Condition: PCOS ───
+    {
+        name: 'pcos_metabolic_guidance',
+        condition: (ctx) => ctx.medicalConditions?.pcos === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'medium',
+            title: 'PCOS: Metabolic Health During Pregnancy',
+            description: 'Focus on a balanced diet with adequate protein and fiber. Monitor for gestational diabetes as PCOS increases risk. Gentle exercise like walking can help with insulin sensitivity. Stay connected with your healthcare provider.',
+            action: 'pcos_guidance',
+        }),
+    },
+
+    // ─── Medical Condition: Asthma ───
+    {
+        name: 'asthma_breathing_guidance',
+        condition: (ctx) => ctx.medicalConditions?.asthma === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Asthma: Breathing Management',
+            description: 'Continue using your prescribed inhalers as directed. Avoid known triggers. Practice breathing exercises. Keep your rescue inhaler accessible. Inform your obstetrician about your asthma management plan.',
+            action: 'asthma_guidance',
+        }),
+    },
+
+    // ─── Medical Condition: Heart Disease ───
+    {
+        name: 'heart_disease_activity_modification',
+        condition: (ctx) => ctx.medicalConditions?.heartDisease === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Heart Condition: Activity & Rest',
+            description: 'Follow your cardiologist\'s recommendations for activity during pregnancy. Avoid overexertion. Take frequent rest breaks. Monitor for shortness of breath, chest pain, or palpitations and report promptly.',
+            action: 'heart_disease_guidance',
+        }),
+    },
+
+    // ─── Medical Condition: Kidney Issues ───
+    {
+        name: 'kidney_hydration_monitoring',
+        condition: (ctx) => ctx.medicalConditions?.kidneyIssues === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Kidney Health: Fluid & Monitoring',
+            description: 'Follow your doctor\'s fluid intake recommendations. Monitor for signs of swelling, reduced urine output, or high blood pressure. Attend all prenatal and nephrology appointments. Report any changes promptly.',
+            action: 'kidney_guidance',
+        }),
+    },
+
+    // ─── Medical Condition: Epilepsy ───
+    {
+        name: 'epilepsy_seizure_safety',
+        condition: (ctx) => ctx.medicalConditions?.epilepsy === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Epilepsy: Seizure Safety',
+            description: 'Take anti-seizure medications exactly as prescribed. Do not stop or adjust medications without consulting your doctor. Have a seizure safety plan. Ensure someone knows what to do if you have a seizure.',
+            action: 'epilepsy_guidance',
+        }),
+    },
+
+    // ─── Medical Condition: Depression / Anxiety ───
+    {
+        name: 'depression_anxiety_mental_health',
+        condition: (ctx) => ctx.medicalConditions?.depressionAnxiety === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'Mental Health: You Are Not Alone',
+            description: 'Perinatal depression and anxiety are common and treatable. Continue any prescribed medications only as advised by your doctor. Practice self-compassion. Reach out to your support network. Consider speaking with a perinatal mental health specialist.',
+            action: 'mental_health_support',
+        }),
+    },
+    {
+        name: 'depression_anxiety_partner',
+        condition: (ctx) => ctx.medicalConditions?.depressionAnxiety === true,
+        output: () => ({
+            type: 'partner_prompt',
+            priority: 'high',
+            title: 'Partner: Mental Health Support',
+            description: 'Be patient and understanding. Listen without judgment. Help with practical tasks to reduce her load. Encourage but don\'t push. Know the warning signs of worsening depression and have emergency contacts ready.',
+            action: 'partner_mental_health_support',
+            supportAction: {
+                category: 'emotional_support',
+                suggestion: 'Listen without judgment and help with practical tasks',
+            },
+        }),
+    },
+
+    // ─── High Risk Pregnancy ───
+    {
+        name: 'high_risk_pregnancy_extra_care',
+        condition: (ctx) => ctx.medicalConditions?.highRiskPregnancy === true || ctx.highRiskFlag === true,
+        output: () => ({
+            type: 'guidance',
+            priority: 'high',
+            title: 'High-Risk Pregnancy: Extra Care',
+            description: 'Your pregnancy is flagged as high-risk. Attend all scheduled appointments. Follow your doctor\'s specific recommendations. Monitor baby movements daily. Have your hospital bag ready early. Know the warning signs that require immediate attention.',
+            action: 'high_risk_guidance',
+        }),
+    },
 ];
 
 // ─── Rule Engine Executor ───
@@ -359,7 +562,7 @@ export async function evaluateRules(ctx: RuleContext): Promise<RuleOutput[]> {
 // ─── Context Builder ───
 
 export async function buildRuleContext(userId: string): Promise<RuleContext> {
-    const [profile, symptoms, logs] = await Promise.all([
+    const [profile, symptoms, logs, motherHealth] = await Promise.all([
         prisma.pregnancyProfile.findUnique({ where: { userId } }),
         prisma.symptomLog.findMany({
             where: { userId },
@@ -378,6 +581,7 @@ export async function buildRuleContext(userId: string): Promise<RuleContext> {
             orderBy: { logDate: 'desc' },
             take: 14,
         }),
+        prisma.motherHealthProfile.findUnique({ where: { userId } }),
     ]);
 
     const appointments = await prisma.appointment.findMany({
@@ -420,6 +624,21 @@ export async function buildRuleContext(userId: string): Promise<RuleContext> {
             type: a.appointmentType.typeName,
         })),
         highRiskFlag: profile?.highRiskFlag ?? false,
+        medicalConditions: motherHealth ? {
+            anemia: motherHealth.anemia ?? false,
+            diabetes: motherHealth.diabetes ?? false,
+            hypertension: motherHealth.highBP ?? false,
+            highBP: motherHealth.highBP ?? false,
+            lowBP: motherHealth.lowBP ?? false,
+            thyroidDisorder: motherHealth.thyroidDisorder ?? false,
+            pcos: motherHealth.pcos ?? false,
+            asthma: motherHealth.asthma ?? false,
+            heartDisease: motherHealth.heartDisease ?? false,
+            kidneyIssues: motherHealth.kidneyIssues ?? false,
+            epilepsy: motherHealth.epilepsy ?? false,
+            highRiskPregnancy: false, // Set from pregnancy profile highRiskFlag instead
+            depressionAnxiety: motherHealth.depressionAnxiety ?? false,
+        } : undefined,
     };
 }
 

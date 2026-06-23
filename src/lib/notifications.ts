@@ -35,6 +35,21 @@ export type ReminderChannelType = 'push' | 'email' | 'sms' | 'in_app';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'emergency';
 
+/** Medical conditions from MotherHealthProfile used for personalization */
+export interface MedicalConditionsForNotifications {
+    anemia?: boolean;
+    diabetes?: boolean;
+    highBP?: boolean;
+    lowBP?: boolean;
+    thyroidDisorder?: boolean;
+    pcos?: boolean;
+    asthma?: boolean;
+    heartDisease?: boolean;
+    kidneyIssues?: boolean;
+    epilepsy?: boolean;
+    depressionAnxiety?: boolean;
+}
+
 export interface NotificationItem {
     id: string;
     userId?: string;
@@ -273,6 +288,211 @@ export function generateMockNotifications(count: number = 25): NotificationItem[
                     ][i % 5]
                     : undefined,
         });
+    }
+
+    return notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+// ─── Personalized Notification Generator ───────────────────────────
+
+/**
+ * Generate personalized health tips as notifications based on the
+ * mother's medical conditions. These are condition-specific reminders
+ * that appear in the notification feed alongside rule-triggered alerts.
+ */
+export function generatePersonalizedNotifications(
+    medicalConditions: MedicalConditionsForNotifications,
+    userId?: string,
+): NotificationItem[] {
+    const notifications: NotificationItem[] = [];
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10); // "2026-06-19"
+
+    let id = 9000;
+
+    const add = (title: string, body: string, priority: NotificationPriority = 'medium', suffix?: string) => {
+        const idSuffix = suffix ? `-${suffix}` : `-${id++}`;
+        notifications.push({
+            id: `personalized-${todayStr}${idSuffix}`,
+            userId,
+            category: 'rule_triggered',
+            title,
+            body,
+            status: 'pending',
+            priority,
+            channel: 'in_app',
+            scheduledFor: now,
+            createdAt: now,
+            actionUrl: '/wellness',
+            actionLabel: 'View Wellness Tips',
+            payload: { personalized: true, date: todayStr },
+        });
+    };
+
+    if (medicalConditions.anemia) {
+        add(
+            '🩸 Anemia Care: Boost your iron intake today',
+            'Include iron-rich foods like spinach, lentils, jaggery, and lean red meat. Take your iron supplement with vitamin C for better absorption. Avoid tea/coffee within 1 hour of iron-rich meals.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.diabetes) {
+        add(
+            '🍬 Diabetes Management: Monitor your blood sugar',
+            'Choose complex carbohydrates over simple sugars. Eat small, frequent meals to maintain stable glucose levels. Check your blood sugar as recommended by your doctor.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.highBP) {
+        add(
+            '💓 Blood Pressure Care: Keep sodium in check',
+            'Reduce sodium intake — avoid processed and salty foods. Include potassium-rich foods like bananas and sweet potatoes. Monitor your blood pressure daily.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.lowBP) {
+        add(
+            '💓 Low BP: Stay hydrated and nourished',
+            'Stay well-hydrated to help maintain blood pressure. Eat small, frequent meals to prevent dizziness. Rise slowly from sitting or lying positions.',
+            'medium',
+        );
+    }
+
+    if (medicalConditions.thyroidDisorder) {
+        add(
+            '🦋 Thyroid Care: Don\'t skip your medication',
+            'Take your thyroid medication as prescribed — consistency is key. Avoid excessive soy products near medication time. Get your levels checked as recommended.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.pcos) {
+        add(
+            '🔄 PCOS Wellness: Focus on anti-inflammatory foods',
+            'Include turmeric, berries, and leafy greens in your diet. Maintain balanced blood sugar with complex carbs and protein. Stay active with gentle exercise.',
+            'medium',
+        );
+    }
+
+    if (medicalConditions.asthma) {
+        add(
+            '🫁 Asthma Safety: Keep your inhaler handy',
+            'Avoid exercise in cold or dusty environments. Keep your asthma medication accessible at all times. Watch for wheezing, chest tightness, or difficulty breathing.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.heartDisease) {
+        add(
+            '❤️ Heart Health: Pace yourself today',
+            'Only exercise as approved by your cardiologist. Coordinate care between your cardiologist and obstetrician. Watch for chest pain, palpitations, or unusual shortness of breath.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.kidneyIssues) {
+        add(
+            '🫘 Kidney Care: Monitor your fluid intake',
+            'Follow your doctor\'s specific fluid intake guidelines. Monitor your protein intake as advised. Attend all scheduled kidney function tests.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.epilepsy) {
+        add(
+            '🧠 Epilepsy Safety: Stay on track with medication',
+            'Continue anti-epileptic medication as prescribed — do not stop. Report any seizure activity immediately to your doctor. Ensure someone is aware of your condition.',
+            'high',
+        );
+    }
+
+    if (medicalConditions.depressionAnxiety) {
+        add(
+            '💚 Mental Wellness: You\'re not alone',
+            'Be kind to yourself today. Consider speaking with a counselor or your doctor about your feelings. Even a short 10-minute walk can help lift your mood. Reach out to your support network.',
+            'high',
+        );
+    }
+
+    // ─── Daily Diet & Nutrition Tips (1-2 per day) ───
+    // Rotate through a pool of tips based on the day of the month
+    const dietTipPool = [
+        {
+            title: '🥗 Nutrition Tip: Eat the rainbow',
+            body: 'Include colorful fruits and vegetables in your meals today. Each color provides different essential vitamins and antioxidants for you and your baby.',
+        },
+        {
+            title: '💧 Nutrition Tip: Stay hydrated',
+            body: 'Aim for 8-10 glasses of water today. Proper hydration helps prevent constipation, reduces swelling, and supports amniotic fluid levels.',
+        },
+        {
+            title: '🥛 Nutrition Tip: Calcium-rich foods',
+            body: 'Include dairy, fortified plant milk, leafy greens, or sesame seeds today. Your baby needs calcium for developing strong bones and teeth.',
+        },
+        {
+            title: '🥩 Nutrition Tip: Iron-rich meals',
+            body: 'Add spinach, lentils, lean meat, or beans to your plate today. Iron helps prevent anemia and supports your baby\'s oxygen supply.',
+        },
+        {
+            title: '🐟 Nutrition Tip: Omega-3 for brain development',
+            body: 'Include walnuts, flaxseeds, chia seeds, or low-mercury fish today. Omega-3s support your baby\'s brain and eye development.',
+        },
+        {
+            title: '🍳 Nutrition Tip: Protein power',
+            body: 'Make sure you get enough protein today — eggs, paneer, dal, chicken, or tofu. Protein is essential for your baby\'s tissue growth.',
+        },
+        {
+            title: '🥑 Nutrition Tip: Healthy fats',
+            body: 'Include avocados, nuts, olive oil, or ghee in moderation today. Healthy fats support hormone production and baby\'s development.',
+        },
+        {
+            title: '🍊 Nutrition Tip: Vitamin C boost',
+            body: 'Add citrus fruits, bell peppers, amla, or tomatoes to your meals today. Vitamin C helps iron absorption and strengthens immunity.',
+        },
+        {
+            title: '🌾 Nutrition Tip: Fiber for digestion',
+            body: 'Include whole grains, oats, fruits with skin, and vegetables today. Fiber helps prevent constipation which is common during pregnancy.',
+        },
+        {
+            title: '🍌 Nutrition Tip: Potassium for cramps',
+            body: 'Add bananas, sweet potatoes, coconut water, or spinach today. Potassium helps reduce muscle cramps and maintain fluid balance.',
+        },
+        {
+            title: '🥜 Nutrition Tip: Folate-rich foods',
+            body: 'Include dark leafy greens, chickpeas, peanuts, or fortified cereals today. Folate is crucial for preventing neural tube defects.',
+        },
+        {
+            title: '🫘 Nutrition Tip: Zinc for immunity',
+            body: 'Add pumpkin seeds, chickpeas, cashews, or whole grains today. Zinc supports your immune system and cell growth.',
+        },
+        {
+            title: '🥚 Nutrition Tip: Vitamin D matters',
+            body: 'Get some morning sunlight and include eggs, mushrooms, or fortified milk today. Vitamin D helps calcium absorption.',
+        },
+        {
+            title: '🍵 Nutrition Tip: Herbal teas',
+            body: 'Consider ginger tea (for nausea) or chamomile tea (for relaxation). Avoid excessive caffeine — stick to 200mg per day max.',
+        },
+        {
+            title: '🍽️ Nutrition Tip: Small frequent meals',
+            body: 'Try eating 5-6 smaller meals instead of 3 large ones today. This helps with digestion, heartburn, and maintaining steady energy.',
+        },
+    ];
+
+    const dayOfMonth = now.getDate();
+    // Select 2 tips based on day of month (rotating pool)
+    const tipIndex1 = dayOfMonth % dietTipPool.length;
+    const tipIndex2 = (dayOfMonth + 7) % dietTipPool.length;
+
+    const selectedTips = tipIndex1 === tipIndex2
+        ? [dietTipPool[tipIndex1]]
+        : [dietTipPool[tipIndex1], dietTipPool[tipIndex2]];
+
+    for (const tip of selectedTips) {
+        add(tip.title, tip.body, 'medium', `diet-${dietTipPool.indexOf(tip)}`);
     }
 
     return notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

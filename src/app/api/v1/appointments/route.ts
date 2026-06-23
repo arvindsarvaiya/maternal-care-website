@@ -36,9 +36,11 @@ export async function GET(req: NextRequest) {
 
         const url = new URL(req.url);
         const status = url.searchParams.get('status');
+        const statusFilter = status?.toLowerCase();
         const type = url.searchParams.get('type');
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '20');
+        const now = new Date();
 
         // Get linked partner's userId for shared appointments
         const partnerId = await findLinkedPartnerId(payload.userId);
@@ -47,8 +49,14 @@ export async function GET(req: NextRequest) {
             ? { userId: { in: [payload.userId, partnerId] } }
             : { userId: payload.userId };
 
-        if (status) {
-            where.status = { statusName: status };
+        if (statusFilter === 'upcoming' || statusFilter === 'scheduled') {
+            where.scheduledAt = { gte: now };
+            where.status = { statusName: { notIn: ['cancelled', 'completed'] } };
+        } else if (statusFilter === 'previous' || statusFilter === 'past') {
+            where.scheduledAt = { lt: now };
+            where.status = { statusName: { notIn: ['cancelled', 'completed'] } };
+        } else if (statusFilter) {
+            where.status = { statusName: statusFilter };
         }
         if (type) {
             where.appointmentType = { typeName: type };
@@ -68,13 +76,13 @@ export async function GET(req: NextRequest) {
             prisma.appointment.count({ where }),
         ]);
 
-        const now = new Date();
         return success({
             appointments: appointments.map(a => {
-                // Dynamically determine status based on current time
                 const scheduledDate = new Date(a.scheduledAt);
-                const isPast = scheduledDate < now;
-                const dynamicStatus = isPast ? 'previous' : 'upcoming';
+                const dbStatus = a.status.statusName;
+                const dynamicStatus = ['cancelled', 'completed'].includes(dbStatus)
+                    ? dbStatus
+                    : scheduledDate < now ? 'previous' : 'upcoming';
 
                 return {
                     id: a.id,

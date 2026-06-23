@@ -6,9 +6,11 @@ import { useAuth } from '@/components/auth-provider';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Badge, Button, ProgressBar } from '@/components/ui';
 import { api } from '@/lib/api-client';
-import { formatWeekKnowledgeForJourneyForLocale } from '@/lib/pregnancy-knowledge-i18n';
+import { formatWeekKnowledgeForJourneyForLocale, formatPersonalizedWeekKnowledgeForJourneyForLocale, type PersonalizationFactors } from '@/lib/pregnancy-knowledge-i18n';
 import { calcPregnancyWeek } from '@/lib/pregnancy-calculator';
 import { calcPostpartumWeek, getRecoveryPhase, getRecoveryPhaseLabel, RECOVERY_PHASE_BADGES, getRecoveryPhase as getRecoveryPhaseFn } from '@/lib/postpartum-calculator';
+import { formatSourceLegend, getSourceAbbreviations } from '@/lib/source-abbreviations';
+import { formatPostpartumWeekKnowledgeForJourney } from '@/lib/postpartum-knowledge';
 import Link from 'next/link';
 import {
     ChevronLeft,
@@ -18,7 +20,6 @@ import {
     Heart,
     Activity,
     Droplets,
-    Apple,
     AlertTriangle,
     Brain,
     Calendar,
@@ -29,6 +30,9 @@ import {
     Timer,
     Stethoscope,
     Smile,
+    Info,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
 
 // ─── Types ───
@@ -49,6 +53,48 @@ interface WeekContent {
 }
 
 type ContentType = 'pregnancy' | 'postpartum';
+
+interface MotherHealthProfile {
+    id: string;
+    diabetes: boolean;
+    highBP: boolean;
+    lowBP: boolean;
+    thyroidDisorder: boolean;
+    pcos: boolean;
+    asthma: boolean;
+    heartDisease: boolean;
+    kidneyIssues: boolean;
+    epilepsy: boolean;
+    anemia: boolean;
+    depressionAnxiety: boolean;
+    bmi: number;
+    diet: string;
+    allergies: string;
+    lmpDate?: string | null;
+    dueDate?: string | null;
+}
+
+function buildPersonalizationFactors(mh: MotherHealthProfile): PersonalizationFactors {
+    return {
+        bmi: mh.bmi ?? undefined,
+        allergies: mh.allergies ? mh.allergies.split(',').map(a => a.trim()).filter(Boolean) : undefined,
+        medicalConditions: {
+            anemia: mh.anemia ?? false,
+            diabetes: mh.diabetes ?? false,
+            hypertension: mh.highBP ?? false,
+            highBP: mh.highBP ?? false,
+            lowBP: mh.lowBP ?? false,
+            thyroidDisorder: mh.thyroidDisorder ?? false,
+            pcos: mh.pcos ?? false,
+            asthma: mh.asthma ?? false,
+            heartDisease: mh.heartDisease ?? false,
+            kidneyIssues: mh.kidneyIssues ?? false,
+            epilepsy: mh.epilepsy ?? false,
+            highRiskPregnancy: false,
+        },
+        diet: (mh.diet === 'veg' || mh.diet === 'non-veg') ? mh.diet : undefined,
+    };
+}
 
 // ─── Helper: parse simple markdown bullet lists ───
 
@@ -125,6 +171,7 @@ export default function WeeklyJourneyPage() {
     const [content, setContent] = useState<WeekContent[]>([]);
     const [loading, setLoading] = useState(true);
     const [dashboardUrl, setDashboardUrl] = useState<string>('/mother');
+    const [motherHealthProfile, setMotherHealthProfile] = useState<MotherHealthProfile | null>(null);
 
     // Fetch dashboard URL
     useEffect(() => {
@@ -135,6 +182,7 @@ export default function WeeklyJourneyPage() {
     const [currentWeek, setCurrentWeek] = useState(24);
     const [selectedWeek, setSelectedWeek] = useState(24);
     const [contentType, setContentType] = useState<ContentType>('pregnancy');
+    const [showSourceInfo, setShowSourceInfo] = useState(false);
 
     const totalWeeks = contentType === 'postpartum' ? 52 : 40;
     const weekNumbers = Array.from({ length: totalWeeks }, (_, i) => i + 1);
@@ -190,6 +238,11 @@ export default function WeeklyJourneyPage() {
                 }
             }
 
+            // Save mother health profile for personalization
+            if (motherHealthRes.status === 'fulfilled' && motherHealthRes.value) {
+                setMotherHealthProfile(motherHealthRes.value as MotherHealthProfile);
+            }
+
             setContentType(ct);
             const totalWks = ct === 'postpartum' ? 52 : 40;
 
@@ -220,21 +273,59 @@ export default function WeeklyJourneyPage() {
         : null;
     const phaseBadge = recoveryPhase ? RECOVERY_PHASE_BADGES[recoveryPhase] : null;
 
-    // Find week data — try API content first, fall back to knowledge database (pregnancy only)
+    // Find week data — try API content first, fall back to local knowledge database
     const apiWeekData = content.find(c => c.weekNumber === selectedWeek);
-    const fallback = contentType === 'pregnancy'
-        ? formatWeekKnowledgeForJourneyForLocale(selectedWeek, locale)
-        : null;
-    const weekData = apiWeekData ?? (fallback ? {
-        id: `fallback-week-${selectedWeek}`,
-        weekNumber: fallback.weekNumber,
-        title: fallback.title,
-        summary: fallback.summary,
-        bodyMarkdown: fallback.bodyMarkdown,
-        dietNotes: fallback.dietNotes,
-        activityNotes: fallback.activityNotes,
-        warningSigns: fallback.warningSigns,
-    } : null);
+
+    let weekData: {
+        id: string;
+        weekNumber: number;
+        title: string;
+        summary: string;
+        bodyMarkdown: string | null;
+        dietNotes: string | null;
+        activityNotes: string | null;
+        warningSigns: string | null;
+        recoveryNotes?: string | null;
+        babyCareNotes?: string | null;
+        mentalHealthNotes?: string | null;
+    } | null = null;
+
+    if (apiWeekData) {
+        weekData = apiWeekData;
+    } else if (contentType === 'pregnancy') {
+        const fallback = motherHealthProfile
+            ? formatPersonalizedWeekKnowledgeForJourneyForLocale(selectedWeek, locale, buildPersonalizationFactors(motherHealthProfile))
+            : formatWeekKnowledgeForJourneyForLocale(selectedWeek, locale);
+        if (fallback) {
+            weekData = {
+                id: `fallback-week-${selectedWeek}`,
+                weekNumber: fallback.weekNumber,
+                title: fallback.title,
+                summary: fallback.summary,
+                bodyMarkdown: fallback.bodyMarkdown,
+                dietNotes: fallback.dietNotes,
+                activityNotes: fallback.activityNotes,
+                warningSigns: fallback.warningSigns,
+            };
+        }
+    } else if (contentType === 'postpartum') {
+        const fallback = formatPostpartumWeekKnowledgeForJourney(selectedWeek);
+        if (fallback) {
+            weekData = {
+                id: `fallback-pp-week-${selectedWeek}`,
+                weekNumber: fallback.weekNumber,
+                title: fallback.title,
+                summary: fallback.summary,
+                bodyMarkdown: null,
+                dietNotes: null,
+                activityNotes: fallback.activityNotes,
+                warningSigns: fallback.warningSigns,
+                recoveryNotes: fallback.recoveryNotes,
+                babyCareNotes: fallback.babyCareNotes,
+                mentalHealthNotes: fallback.mentalHealthNotes,
+            };
+        }
+    }
 
     const sections = parseMarkdownSections(weekData?.bodyMarkdown ?? null);
 
@@ -244,7 +335,6 @@ export default function WeeklyJourneyPage() {
     const babyLength = sections.babyLength || '—';
     const summary = weekData?.summary || '';
 
-    const dietTips = parseBulletList(weekData?.dietNotes ?? null);
     const activityTips = parseBulletList(weekData?.activityNotes ?? null);
     const warningSigns = parseBulletList(weekData?.warningSigns ?? null);
 
@@ -504,24 +594,6 @@ export default function WeeklyJourneyPage() {
 
                         {/* Sidebar — Tips & Checklist */}
                         <div className="space-y-6">
-                            {/* Diet Tips */}
-                            {dietTips.length > 0 && (
-                                <Card>
-                                    <h3 className="font-display text-lg text-surface-800 dark:text-surface-200 mb-3 flex items-center gap-2">
-                                        <Apple className="w-5 h-5 text-primary-500" />
-                                        {t('dietNutrition')}
-                                    </h3>
-                                    <ul className="space-y-2">
-                                        {dietTips.map((item, i) => (
-                                            <li key={i} className="flex items-start gap-2 text-sm text-surface-700 dark:text-surface-300">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-primary-300 mt-1.5 flex-shrink-0" />
-                                                {item}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </Card>
-                            )}
-
                             {/* Activity Tips */}
                             {activityTips.length > 0 && (
                                 <Card>
@@ -594,6 +666,86 @@ export default function WeeklyJourneyPage() {
                                 </Card>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* ─── Information Sources (Postpartum Only) ─── */}
+                {isPostpartumContent && !loading && weekData && (
+                    <div className="mt-6">
+                        <button
+                            onClick={() => setShowSourceInfo(!showSourceInfo)}
+                            className="w-full flex items-center justify-between p-4 rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/50 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Info className="w-5 h-5 text-primary-500" />
+                                <span className="text-sm font-medium text-surface-700 dark:text-surface-300">
+                                    {locale === 'hi' ? '📚 जानकारी के स्रोत — इन संक्षिप्त नामों का क्या मतलब है?' : '📚 Information Sources — What Do These Abbreviations Mean?'}
+                                </span>
+                            </div>
+                            {showSourceInfo ? (
+                                <ChevronUp className="w-5 h-5 text-surface-400" />
+                            ) : (
+                                <ChevronDown className="w-5 h-5 text-surface-400" />
+                            )}
+                        </button>
+                        {showSourceInfo && (
+                            <Card className="mt-2">
+                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Indian Organizations */}
+                                        <div>
+                                            <h4 className="font-display text-base text-surface-800 dark:text-surface-200 mb-3 flex items-center gap-1">
+                                                🇮🇳 {locale === 'hi' ? 'भारतीय संस्थाएं' : 'Indian Organizations'}
+                                            </h4>
+                                            <ul className="space-y-2">
+                                                {Object.entries(getSourceAbbreviations())
+                                                    .filter(([_, info]) => info.isIndian)
+                                                    .map(([abbr, info]) => (
+                                                        <li key={abbr} className="text-sm text-surface-600 dark:text-surface-400">
+                                                            <span className="font-semibold text-surface-800 dark:text-surface-200">{abbr}</span>
+                                                            {' — '}
+                                                            <span className="font-medium">{info.fullName}</span>
+                                                            <br />
+                                                            <span className="text-xs text-surface-500">
+                                                                {locale === 'hi' ? info.descriptionHindi : info.description}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                            </ul>
+                                        </div>
+                                        {/* International Organizations */}
+                                        <div>
+                                            <h4 className="font-display text-base text-surface-800 dark:text-surface-200 mb-3 flex items-center gap-1">
+                                                🌍 {locale === 'hi' ? 'अंतरराष्ट्रीय संस्थाएं' : 'International Organizations'}
+                                            </h4>
+                                            <ul className="space-y-2">
+                                                {Object.entries(getSourceAbbreviations())
+                                                    .filter(([_, info]) => !info.isIndian)
+                                                    .map(([abbr, info]) => (
+                                                        <li key={abbr} className="text-sm text-surface-600 dark:text-surface-400">
+                                                            <span className="font-semibold text-surface-800 dark:text-surface-200">{abbr}</span>
+                                                            {' — '}
+                                                            <span className="font-medium">{info.fullName}</span>
+                                                            <br />
+                                                            <span className="text-xs text-surface-500">
+                                                                {locale === 'hi' ? info.descriptionHindi : info.description}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-surface-200 dark:border-surface-700">
+                                        <p className="text-xs text-surface-500 italic">
+                                            {locale === 'hi'
+                                                ? '💡 इस गाइड में दी गई हर जानकारी इन विश्वसनीय स्वास्थ्य संस्थानों द्वारा समर्थित है। जब आप किसी सलाह के पास (WHO, MOHFW) जैसे संक्षिप्त नाम देखें, तो इसका मतलब है कि यह मार्गदर्शन विश्व स्वास्थ्य संगठन और भारत के स्वास्थ्य मंत्रालय दोनों द्वारा समर्थित है।'
+                                                : '💡 Every claim in this guide is backed by these trusted health authorities. When you see abbreviations like (WHO, MOHFW) next to health advice, it means the guidance is supported by both the World Health Organization and India\'s Ministry of Health & Family Welfare.'
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
                     </div>
                 )}
             </div>

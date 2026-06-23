@@ -7,6 +7,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Card, Badge, ProgressBar } from '@/components/ui';
 import { api } from '@/lib/api-client';
 import { calcPostpartumWeek, PostpartumWeekInfo, getRecoveryPhaseLabel } from '@/lib/postpartum-calculator';
+import { getPersonalizedPostpartumWeekKnowledgeForLocale, type PersonalizationFactors, type PostpartumWeekKnowledge } from '@/lib/postpartum-knowledge-i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -16,9 +17,9 @@ import {
     Shield, Send,
     HeartHandshake, Stethoscope, MessageCircle,
     Loader2, CheckCircle2, Star,
-    Apple, Dumbbell, ClipboardList, Ruler,
+    Dumbbell, ClipboardList, Ruler,
     Timer, Milk, Weight, TrendingUp, Thermometer,
-    Utensils, Moon, Sun,
+    Moon, Sun,
 } from 'lucide-react';
 
 // ─── Types ───
@@ -95,6 +96,43 @@ interface MotherHealthProfile {
     nicuStay: boolean | null;
     postpartumSupport: string | null;
     deliveryDate: string | null;
+    // Medical conditions for personalization
+    anemia?: boolean;
+    diabetes?: boolean;
+    highBP?: boolean;
+    lowBP?: boolean;
+    thyroidDisorder?: boolean;
+    pcos?: boolean;
+    asthma?: boolean;
+    heartDisease?: boolean;
+    kidneyIssues?: boolean;
+    epilepsy?: boolean;
+    depressionAnxiety?: boolean;
+    bmi?: number;
+    diet?: string;
+    allergies?: string;
+}
+
+function buildPersonalizationFactors(mh: MotherHealthProfile): PersonalizationFactors {
+    return {
+        bmi: mh.bmi ?? undefined,
+        allergies: mh.allergies ? mh.allergies.split(',').map(a => a.trim()).filter(Boolean) : undefined,
+        medicalConditions: {
+            anemia: mh.anemia ?? false,
+            diabetes: mh.diabetes ?? false,
+            hypertension: mh.highBP ?? false,
+            highBP: mh.highBP ?? false,
+            lowBP: mh.lowBP ?? false,
+            thyroidDisorder: mh.thyroidDisorder ?? false,
+            pcos: mh.pcos ?? false,
+            asthma: mh.asthma ?? false,
+            heartDisease: mh.heartDisease ?? false,
+            kidneyIssues: mh.kidneyIssues ?? false,
+            epilepsy: mh.epilepsy ?? false,
+            highRiskPregnancy: false,
+        },
+        diet: (mh.diet === 'veg' || mh.diet === 'non-veg') ? (mh.diet as 'veg' | 'non-veg') : undefined,
+    };
 }
 
 // ─── Helper Components ───
@@ -217,6 +255,11 @@ export default function PostpartumDashboard() {
                 }
             }
 
+            // Update mother health profile from API (for personalization)
+            if (motherHealthRes.status === 'fulfilled') {
+                setMotherProfile(motherHealthRes.value);
+            }
+
             // Fallback: use MotherHealthProfile delivery date
             if (!localPostpartumInfo && motherHealthRes.status === 'fulfilled') {
                 const mhProfile = motherHealthRes.value;
@@ -268,19 +311,35 @@ export default function PostpartumDashboard() {
                 }
             }
 
-            // Fallback for postpartum: build guidance from calculator info
+            // Fallback for postpartum: build personalized guidance from knowledge database
             if (!weekGuidance && localPostpartumInfo) {
+                const profile = motherHealthRes.status === 'fulfilled' ? motherHealthRes.value as MotherHealthProfile : null;
+                const personalizeFactors = profile ? buildPersonalizationFactors(profile) : {};
+                const personalized = getPersonalizedPostpartumWeekKnowledgeForLocale(localPostpartumInfo.week, locale, personalizeFactors);
                 const phaseLabel = getRecoveryPhaseLabel(localPostpartumInfo.recoveryPhase);
-                setWeekGuidance({
-                    id: `fallback-pp-week-${localPostpartumInfo.week}`,
-                    weekNumber: localPostpartumInfo.week,
-                    title: `Postpartum Week ${localPostpartumInfo.week} — ${phaseLabel}`,
-                    summary: `You are ${localPostpartumInfo.daysSinceDelivery} days postpartum, in the ${phaseLabel} recovery phase.${localPostpartumInfo.isCriticalRecovery ? ' Schedule your 6-week follow-up checkup.' : ''}`,
-                    bodyMarkdown: null,
-                    dietNotes: 'Focus on nutrient-dense foods: iron-rich, protein, and hydration for recovery and breastfeeding.',
-                    activityNotes: 'Gentle walking, pelvic floor exercises (Kegels), avoid heavy lifting until cleared by doctor.',
-                    warningSigns: 'Heavy bleeding, fever, severe pain, shortness of breath, chest pain, thoughts of self-harm.',
-                });
+                if (personalized) {
+                    setWeekGuidance({
+                        id: `fallback-pp-week-${localPostpartumInfo.week}`,
+                        weekNumber: personalized.week,
+                        title: personalized.title || `Postpartum Week ${localPostpartumInfo.week} — ${phaseLabel}`,
+                        summary: personalized.summary,
+                        bodyMarkdown: null,
+                        dietNotes: personalized.nutritionalFocus.join(' · '),
+                        activityNotes: personalized.activityNotes.join(' · '),
+                        warningSigns: personalized.warningSigns.join(' · '),
+                    });
+                } else {
+                    setWeekGuidance({
+                        id: `fallback-pp-week-${localPostpartumInfo.week}`,
+                        weekNumber: localPostpartumInfo.week,
+                        title: `Postpartum Week ${localPostpartumInfo.week} — ${phaseLabel}`,
+                        summary: `You are ${localPostpartumInfo.daysSinceDelivery} days postpartum, in the ${phaseLabel} recovery phase.${localPostpartumInfo.isCriticalRecovery ? ' Schedule your 6-week follow-up checkup.' : ''}`,
+                        bodyMarkdown: null,
+                        dietNotes: 'Focus on nutrient-dense foods: iron-rich, protein, and hydration for recovery and breastfeeding.',
+                        activityNotes: 'Gentle walking, pelvic floor exercises (Kegels), avoid heavy lifting until cleared by doctor.',
+                        warningSigns: 'Heavy bleeding, fever, severe pain, shortness of breath, chest pain, thoughts of self-harm.',
+                    });
+                }
             }
 
             // Completed support tasks to rate
@@ -634,16 +693,7 @@ export default function PostpartumDashboard() {
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                    <Apple className="w-5 h-5 text-gold-500 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('dietNutrition') || 'Diet & Nutrition'}</p>
-                                        <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                            {weekGuidance.dietNotes || t('dietDefault') || 'Iron-rich foods, protein, hydration for recovery and breastfeeding.'}
-                                        </p>
-                                    </div>
-                                </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                                 <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
                                     <Dumbbell className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" />
                                     <div>

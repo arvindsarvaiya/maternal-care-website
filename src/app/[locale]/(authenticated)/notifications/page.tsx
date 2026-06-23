@@ -27,12 +27,13 @@ import {
     Baby,
     Loader2,
     Info,
+    RefreshCw,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type NotificationCategory = 'appointment' | 'medication' | 'weekly_update' | 'partner_activity' | 'rule_triggered' | 'system';
+type NotificationCategory = 'appointment' | 'medication' | 'weekly_update' | 'partner_activity' | 'personalized_tip' | 'rule_triggered' | 'system';
 
 interface ApiNotification {
     id: string;
@@ -102,6 +103,13 @@ const NOTIFICATION_CATEGORY_CONFIG: Record<NotificationCategory, {
         bg: 'bg-wine-100 dark:bg-wine-800',
         badgeVariant: 'wine',
     },
+    personalized_tip: {
+        labelKey: 'personalized',
+        icon: Heart,
+        color: 'text-razzmatazz-600 dark:text-razzmatazz-400',
+        bg: 'bg-razzmatazz-100 dark:bg-razzmatazz-800',
+        badgeVariant: 'razzmatazz',
+    },
     system: {
         labelKey: 'system',
         icon: Info,
@@ -115,13 +123,14 @@ const STAT_CARDS: { key: NotificationCategory | 'unread'; labelKey: string; icon
     { key: 'appointment', labelKey: 'appointments', icon: CalendarDays, color: 'text-gold-600' },
     { key: 'medication', labelKey: 'medication', icon: Pill, color: 'text-razzmatazz-600' },
     { key: 'weekly_update', labelKey: 'weeklyUpdates', icon: Baby, color: 'text-primary-600' },
+    { key: 'personalized_tip', labelKey: 'personalized', icon: Heart, color: 'text-razzmatazz-600' },
     { key: 'partner_activity', labelKey: 'partner', icon: Users, color: 'text-razzmatazz-600' },
     { key: 'rule_triggered', labelKey: 'alerts', icon: AlertTriangle, color: 'text-wine-600' },
     { key: 'unread', labelKey: 'unread', icon: Bell, color: 'text-danger-600' },
 ];
 
 function mapApiTypeToCategory(type: string): NotificationCategory {
-    const validCategories: NotificationCategory[] = ['appointment', 'medication', 'weekly_update', 'partner_activity', 'rule_triggered', 'system'];
+    const validCategories: NotificationCategory[] = ['appointment', 'medication', 'weekly_update', 'personalized_tip', 'partner_activity', 'rule_triggered', 'system'];
     if (validCategories.includes(type as NotificationCategory)) return type as NotificationCategory;
     // Map appointment-related sub-types to the 'appointment' category
     if (type.startsWith('appointment') || type.includes('_appointment')) return 'appointment';
@@ -275,6 +284,8 @@ export default function NotificationsPage() {
     }, [user?.roles, getDashboardUrl]);
     const [markingIds, setMarkingIds] = useState<Set<string>>(new Set());
     const [markingAll, setMarkingAll] = useState(false);
+    const [resettingTips, setResettingTips] = useState(false);
+    const [resetMessage, setResetMessage] = useState<string | null>(null);
 
     const fetchNotifications = useCallback(async () => {
         setLoading(true);
@@ -334,6 +345,28 @@ export default function NotificationsPage() {
             setMarkingAll(false);
         }
     }, []);
+
+    const handleResetTips = useCallback(async () => {
+        setResettingTips(true);
+        setResetMessage(null);
+        try {
+            const result = await api.delete<{ deleted: number }>('/notifications');
+            // Clear localStorage seen IDs so the notification-provider can show them again
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.removeItem('maternal-seen-notifications');
+                } catch { /* ignore */ }
+            }
+            setResetMessage(t('tipsReset', { count: result.deleted }));
+            // Refresh the notification list
+            await fetchNotifications();
+        } catch (err) {
+            console.error('Failed to reset tips:', err);
+            setResetMessage(t('resetFailed'));
+        } finally {
+            setResettingTips(false);
+        }
+    }, [fetchNotifications, t]);
 
     // Group notifications by date
     const groupedNotifications = useMemo(() => {
@@ -398,8 +431,31 @@ export default function NotificationsPage() {
                                 {t('markAllRead')}
                             </Button>
                         )}
+                        <Button
+                            onClick={handleResetTips}
+                            size="sm"
+                            variant="outline"
+                            disabled={resettingTips}
+                            className="flex items-center gap-2"
+                            title={t('resetTodayTipsDesc')}
+                        >
+                            {resettingTips ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <RefreshCw className="w-4 h-4" />
+                            )}
+                            {t('resetTodayTips')}
+                        </Button>
                     </div>
                 </div>
+
+                {/* Reset message */}
+                {resetMessage && (
+                    <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700 rounded-lg p-3 text-sm text-primary-700 dark:text-primary-300 flex items-center gap-2">
+                        <Check className="w-4 h-4 flex-shrink-0" />
+                        {resetMessage}
+                    </div>
+                )}
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

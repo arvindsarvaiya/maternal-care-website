@@ -16,8 +16,8 @@ export function PublicNavbar() {
     const navLinks = [
         { href: '/home', label: n('home'), key: '/home' },
         { href: '/about', label: n('about'), key: '/about' },
-        { href: '/faq', label: n('faq'), key: '/faq' },
         { href: '/facts-and-myths', label: n('factsAndMyths'), key: '/facts-and-myths' },
+        { href: '/faq', label: n('faq'), key: '/faq' },
     ];
 
     // Close mobile menu on outside click
@@ -54,7 +54,7 @@ export function PublicNavbar() {
             {/* Logo */}
             <Link href="/home" className="no-underline shrink-0">
                 <span
-                    className="font-semibold text-[#a86b81] text-2xl lg:text-3xl"
+                    className="font-semibold text-[#9511F4] text-2xl lg:text-3xl"
                 >
                     MaternalCare
                 </span>
@@ -68,8 +68,8 @@ export function PublicNavbar() {
                             <Link
                                 href={link.href}
                                 className={`text-base no-underline transition-colors duration-100 ${currentPath === link.key
-                                    ? 'font-medium text-[#a86b81]'
-                                    : 'font-light text-[#56616b] hover:text-[#a86b81]'
+                                    ? 'font-medium text-[#9511F4]'
+                                    : 'font-light text-[#56616b] hover:text-[#9511F4]'
                                     }`}
                             >
                                 {link.label}
@@ -126,7 +126,7 @@ export function PublicNavbar() {
                                     <Link
                                         href={link.href}
                                         className={`block px-3 py-2 text-base no-underline rounded-xl transition-colors ${currentPath === link.key
-                                            ? 'font-medium text-[#a86b81] bg-[#a86b81]/5'
+                                            ? 'font-medium text-[#9511F4] bg-[#9511F4]/5'
                                             : 'text-[#56616b] hover:bg-surface-50'
                                             }`}
                                         onClick={() => setMobileMenuOpen(false)}

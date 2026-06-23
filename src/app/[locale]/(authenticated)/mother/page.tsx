@@ -6,20 +6,21 @@ import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { useTranslations, useLocale } from 'next-intl';
 import { Card, Badge, ProgressBar } from '@/components/ui';
 import { api } from '@/lib/api-client';
-import { getWeekKnowledgeForLocale, WeekKnowledge } from '@/lib/pregnancy-knowledge-i18n';
+import { getWeekKnowledgeForLocale, getPersonalizedWeekKnowledgeForLocale, WeekKnowledge, PersonalizationFactors } from '@/lib/pregnancy-knowledge-i18n';
 import { calcPregnancyWeek as calcPregnancyWeekInfo, PregnancyWeekInfo } from '@/lib/pregnancy-calculator';
 import { calcPostpartumWeek, PostpartumWeekInfo, getRecoveryPhaseLabel } from '@/lib/postpartum-calculator';
 import { getPostpartumWeekKnowledge, type PostpartumWeekKnowledge } from '@/lib/postpartum-knowledge';
+import { getPersonalizedPostpartumWeekKnowledgeForLocale } from '@/lib/postpartum-knowledge-i18n';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-    Baby, Heart, Calendar, Activity, BookOpen,
+    Baby, Heart, Calendar, Activity,
     ChevronRight, Clock, Droplets,
     Smile, Frown, Meh, AlertTriangle, X,
-    Shield, Eye, EyeOff, Send,
+    Shield, Eye, EyeOff, Send, Edit3, Save, Trash2,
     HeartHandshake, Stethoscope, MessageCircle,
     Loader2, CheckCircle2, Star,
-    Apple, Dumbbell, ClipboardList, Ruler,
+    Dumbbell, ClipboardList, Ruler,
     Timer, Milk, Weight, TrendingUp,
 } from 'lucide-react';
 
@@ -86,8 +87,39 @@ interface ApiTask {
     ratings: ApiTaskRating[];
 }
 
+interface DashboardNote {
+    id: string;
+    title: string;
+    body: string;
+    visibility: 'private' | 'shared' | 'partner';
+    createdAt: string;
+    updatedAt: string;
+}
+
+interface NotesApiResponse {
+    notes: DashboardNote[];
+    total: number;
+}
+
 interface MotherHealthProfile {
     id: string;
+    // Medical conditions
+    diabetes: boolean;
+    highBP: boolean;
+    lowBP: boolean;
+    thyroidDisorder: boolean;
+    pcos: boolean;
+    asthma: boolean;
+    heartDisease: boolean;
+    kidneyIssues: boolean;
+    epilepsy: boolean;
+    anemia: boolean;
+    depressionAnxiety: boolean;
+    // Personalization fields
+    bmi: number;
+    diet: string;
+    allergies: string;
+    // Postpartum fields
     deliveryType: string | null;
     breastfeedingStatus: string | null;
     babyBirthWeight: number | null;
@@ -97,6 +129,9 @@ interface MotherHealthProfile {
     nicuStay: boolean | null;
     postpartumSupport: string | null;
     deliveryDate: string | null;
+    // Legacy fields
+    lmpDate?: string | null;
+    dueDate?: string | null;
 }
 
 // ─── Helper Components ───
@@ -139,11 +174,36 @@ function SupportRequestButton({ icon: Icon, label, color, onClick, loading, succ
 }
 
 
+// ─── Helper: Build personalization factors from mother health profile ───
+
+function buildPersonalizationFactors(mh: MotherHealthProfile): PersonalizationFactors {
+    return {
+        bmi: mh.bmi ?? undefined,
+        allergies: mh.allergies ? mh.allergies.split(',').map(a => a.trim()).filter(Boolean) : undefined,
+        medicalConditions: {
+            anemia: mh.anemia ?? false,
+            diabetes: mh.diabetes ?? false,
+            hypertension: mh.highBP ?? false,
+            highBP: mh.highBP ?? false,
+            lowBP: mh.lowBP ?? false,
+            thyroidDisorder: mh.thyroidDisorder ?? false,
+            pcos: mh.pcos ?? false,
+            asthma: mh.asthma ?? false,
+            heartDisease: mh.heartDisease ?? false,
+            kidneyIssues: mh.kidneyIssues ?? false,
+            epilepsy: mh.epilepsy ?? false,
+            highRiskPregnancy: false,
+        },
+        diet: (mh.diet === 'veg' || mh.diet === 'non-veg') ? mh.diet : undefined,
+    };
+}
+
 // ─── Mother Dashboard ───
 
 export default function MotherDashboard() {
     const { user, isPostpartum } = useAuth();
     const t = useTranslations('mother');
+    const sharedT = useTranslations('shared');
     const locale = useLocale();
     const router = useRouter();
 
@@ -161,9 +221,14 @@ export default function MotherDashboard() {
     const [moodValue, setMoodValue] = useState<number>(4);
     const [weekGuidance, setWeekGuidance] = useState<ApiWeekContent | null>(null);
     const [privateNote, setPrivateNote] = useState('');
+    const [privateNotes, setPrivateNotes] = useState<DashboardNote[]>([]);
     const [loading, setLoading] = useState(true);
     const [savingMood, setSavingMood] = useState(false);
     const [savingNote, setSavingNote] = useState(false);
+    const [updatingNoteId, setUpdatingNoteId] = useState<string | null>(null);
+    const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+    const [editingNoteBody, setEditingNoteBody] = useState('');
 
     // Support request state
     const [requestingSupport, setRequestingSupport] = useState<string | null>(null);
@@ -215,14 +280,15 @@ export default function MotherDashboard() {
             let localPregnancyInfo: PregnancyWeekInfo | null = null;
             let localPostpartumInfo: PostpartumWeekInfo | null = null;
             let detectedPhase: 'pregnancy' | 'postpartum' | null = null;
-            const [pregnancyRes, motherHealthRes, symptomsRes, appointmentsRes, wellnessRes, weekRes, tasksRes] = await Promise.allSettled([
+            const [pregnancyRes, motherHealthRes, symptomsRes, appointmentsRes, wellnessRes, weekRes, tasksRes, notesRes] = await Promise.allSettled([
                 api.get<any>('/profile/pregnancy'),
                 api.get<any>('/profile/mother-health'),
                 api.get<{ logs: ApiSymptom[] }>('/symptoms?limit=3'),
-                api.get<{ appointments: ApiAppointment[] }>('/appointments?limit=3'),
+                api.get<{ appointments: ApiAppointment[] }>('/appointments?status=upcoming&limit=3'),
                 api.get<{ logs: ApiWellnessLog[] }>('/wellness?metricType=mood&limit=7'),
                 api.get<{ content: ApiWeekContent[] }>('/weekly-journey?limit=1'),
                 api.get<{ tasks: ApiTask[] }>('/tasks?type=support&status=completed&limit=20'),
+                api.get<NotesApiResponse>('/notes?mine=1&limit=20'),
             ]);
 
             // Track mother health profile data for fallback phase detection
@@ -253,8 +319,8 @@ export default function MotherDashboard() {
                             localPostpartumInfo = ppInfo;
                             setPostpartumInfo(ppInfo);
                             setIsPostpartumPhase(true);
-                            // Load postpartum knowledge
-                            const ppKnowledge = getPostpartumWeekKnowledge(ppInfo.week);
+                            // Load personalized postpartum knowledge
+                            const ppKnowledge = getPersonalizedPostpartumWeekKnowledgeForLocale(ppInfo.week, locale, buildPersonalizationFactors(motherHealthData as MotherHealthProfile));
                             setPostpartumKnowledge(ppKnowledge);
                             setWeekKnowledge(null);
                         }
@@ -268,7 +334,7 @@ export default function MotherDashboard() {
                     if (info) {
                         localPregnancyInfo = info;
                         setPregnancy(info);
-                        const knowledge = getWeekKnowledgeForLocale(Math.min(40, info.week), locale);
+                        const knowledge = getPersonalizedWeekKnowledgeForLocale(Math.min(40, info.week), locale, buildPersonalizationFactors(motherHealthData as MotherHealthProfile));
                         setWeekKnowledge(knowledge);
                         setPostpartumKnowledge(null);
                     }
@@ -311,8 +377,8 @@ export default function MotherDashboard() {
                         setPostpartumInfo(ppInfo);
                         setIsPostpartumPhase(true);
                         detectedPhase = 'postpartum';
-                        // Load postpartum knowledge
-                        const ppKnowledge = getPostpartumWeekKnowledge(ppInfo.week);
+                        // Load personalized postpartum knowledge
+                        const ppKnowledge = getPersonalizedPostpartumWeekKnowledgeForLocale(ppInfo.week, locale, buildPersonalizationFactors(mh as MotherHealthProfile));
                         setPostpartumKnowledge(ppKnowledge);
                         setWeekKnowledge(null);
                     }
@@ -329,7 +395,7 @@ export default function MotherDashboard() {
                 if (info) {
                     localPregnancyInfo = info;
                     setPregnancy(info);
-                    const knowledge = getWeekKnowledgeForLocale(Math.min(40, info.week), locale);
+                    const knowledge = getPersonalizedWeekKnowledgeForLocale(Math.min(40, info.week), locale, buildPersonalizationFactors(motherHealthData as MotherHealthProfile));
                     setWeekKnowledge(knowledge);
                     setPostpartumKnowledge(null);
                 }
@@ -378,7 +444,7 @@ export default function MotherDashboard() {
 
             // Fallback: use knowledge database if no API content available
             if (!hasApiGuidance && localPregnancyInfo) {
-                const knowledge = getWeekKnowledgeForLocale(localPregnancyInfo.week, locale);
+                const knowledge = getPersonalizedWeekKnowledgeForLocale(localPregnancyInfo.week, locale, buildPersonalizationFactors(motherHealthData as MotherHealthProfile));
                 if (knowledge) {
                     setWeekGuidance({
                         id: `fallback-week-${localPregnancyInfo.week}`,
@@ -432,6 +498,11 @@ export default function MotherDashboard() {
                 });
                 setCompletedTasksToRate(unrated);
             }
+
+            // Notes authored by mother stay private here until she shares them.
+            if (notesRes.status === 'fulfilled') {
+                setPrivateNotes((notesRes.value.notes || []).filter(note => note.visibility === 'private'));
+            }
         } catch (err) {
             console.error('Dashboard fetch error:', err);
         } finally {
@@ -477,16 +548,72 @@ export default function MotherDashboard() {
         if (!privateNote.trim()) return;
         setSavingNote(true);
         try {
-            await api.post('/notes', {
+            const createdNote = await api.post<DashboardNote>('/notes', {
                 title: t('privateNoteShort') || 'Private Note',
                 body: privateNote.trim(),
                 visibility: 'private',
             });
+            setPrivateNotes(prev => [createdNote, ...prev]);
             setPrivateNote('');
         } catch (err) {
             console.error('Failed to save note:', err);
         } finally {
             setSavingNote(false);
+        }
+    };
+
+    const handleShareNote = async (noteId: string, visibility: 'shared' | 'partner') => {
+        setUpdatingNoteId(noteId);
+        try {
+            await api.put<DashboardNote>(`/notes/${noteId}`, { visibility });
+            setPrivateNotes(prev => prev.filter(note => note.id !== noteId));
+        } catch (err) {
+            console.error('Failed to share note:', err);
+        } finally {
+            setUpdatingNoteId(null);
+        }
+    };
+
+    const startEditingNote = (note: DashboardNote) => {
+        setEditingNoteId(note.id);
+        setEditingNoteBody(note.body);
+    };
+
+    const cancelEditingNote = () => {
+        setEditingNoteId(null);
+        setEditingNoteBody('');
+    };
+
+    const handleUpdateNote = async (note: DashboardNote) => {
+        const nextBody = editingNoteBody.trim();
+        if (!nextBody) return;
+
+        setUpdatingNoteId(note.id);
+        try {
+            const updatedNote = await api.put<DashboardNote>(`/notes/${note.id}`, {
+                title: note.title,
+                body: nextBody,
+                visibility: 'private',
+            });
+            setPrivateNotes(prev => prev.map(item => item.id === note.id ? updatedNote : item));
+            cancelEditingNote();
+        } catch (err) {
+            console.error('Failed to update note:', err);
+        } finally {
+            setUpdatingNoteId(null);
+        }
+    };
+
+    const handleDeleteNote = async (noteId: string) => {
+        setDeletingNoteId(noteId);
+        try {
+            await api.delete(`/notes/${noteId}`);
+            setPrivateNotes(prev => prev.filter(note => note.id !== noteId));
+            if (editingNoteId === noteId) cancelEditingNote();
+        } catch (err) {
+            console.error('Failed to delete note:', err);
+        } finally {
+            setDeletingNoteId(null);
         }
     };
 
@@ -618,6 +745,24 @@ export default function MotherDashboard() {
                         </button>
                     </div>
                 )}
+
+                <Card className="bg-gradient-to-r from-razzmatazz-50 to-primary-50 dark:from-razzmatazz-900/20 dark:to-primary-900/20 border-razzmatazz-200 dark:border-razzmatazz-800">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-white dark:bg-velvet-900 flex items-center justify-center shadow-soft">
+                                <Baby className="w-5 h-5 text-razzmatazz-500" />
+                            </div>
+                            <div>
+                                <h3 className="font-display text-lg text-surface-800 dark:text-surface-200">{sharedT('profileCardTitle')}</h3>
+                                <p className="text-sm text-surface-500 dark:text-surface-400">{sharedT('profileCardDesc')}</p>
+                            </div>
+                        </div>
+                        <Link href="/shared" className="btn-primary btn-sm flex items-center gap-2 whitespace-nowrap">
+                            {sharedT('openSharedSpace')}
+                            <ChevronRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+                </Card>
 
                 {/* Phase Transition Banner — due date passed */}
                 {showTransitionBanner && !transitionDismissed && !isPostpartumPhase && (
@@ -898,356 +1043,6 @@ export default function MotherDashboard() {
                     </Card>
                 </div>
 
-                {/* This Week's Guidance — shows during pregnancy AND postpartum */}
-                {!isPostpartumPhase ? (
-                    <Card variant="calm">
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <BookOpen className="w-5 h-5 text-primary-600" />
-                                <h3 className="font-display text-lg text-surface-800 dark:text-surface-200">
-                                    {t('thisWeekGuidance')}
-                                </h3>
-                            </div>
-                            <Link href="/weekly-journey" className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
-                                {t('fullJourney')} <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        </div>
-
-                        {weekGuidance || weekKnowledge ? (
-                            <>
-                                {/* Summary */}
-                                <p className="text-sm text-surface-700 dark:text-surface-300 leading-relaxed mb-4">
-                                    {weekGuidance?.summary || (pregnancy
-                                        ? `${t('weekTitle', { week: pregnancy.week })} — ${weekGuidance?.title || `Week ${pregnancy.week}`}`
-                                        : weekGuidance?.title || (weekKnowledge ? `Week ${weekKnowledge.week} — ${weekKnowledge.babySize}` : ''))}
-                                </p>
-
-                                {/* Baby Overview — from knowledge database (pregnancy only) */}
-                                {weekKnowledge && (
-                                    <div className="flex items-start gap-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/10 mb-4">
-                                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center flex-shrink-0">
-                                            <Baby className="w-5 h-5 text-primary-600 dark:text-primary-300" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('babyThisWeek')}</p>
-                                            <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                {weekKnowledge.babySize} · {weekKnowledge.babyWeight} · {weekKnowledge.babyLength}
-                                            </p>
-                                            {weekKnowledge.babyDevelopment.length > 0 && (
-                                                <ul className="mt-2 space-y-1">
-                                                    {weekKnowledge.babyDevelopment.slice(0, 3).map((item, i) => (
-                                                        <li key={i} className="flex items-start gap-1.5 text-xs text-surface-600 dark:text-surface-400">
-                                                            <span className="w-1 h-1 rounded-full bg-primary-400 mt-1.5 flex-shrink-0" />
-                                                            {item}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Mother Body Changes — from knowledge database (pregnancy only) */}
-                                {weekKnowledge && weekKnowledge.motherBodyChanges.length > 0 && (
-                                    <div className="flex items-start gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50 mb-4">
-                                        <Heart className="w-5 h-5 text-razzmatazz-400 flex-shrink-0 mt-0.5" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('motherChanges')}</p>
-                                            <ul className="mt-1 space-y-1">
-                                                {weekKnowledge.motherBodyChanges.slice(0, 3).map((item, i) => (
-                                                    <li key={i} className="flex items-start gap-1.5 text-xs text-surface-600 dark:text-surface-400">
-                                                        <span className="w-1 h-1 rounded-full bg-razzmatazz-400 mt-1.5 flex-shrink-0" />
-                                                        {item}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Common Symptoms — from knowledge database (pregnancy only) */}
-                                {weekKnowledge && weekKnowledge.commonSymptoms.length > 0 && (
-                                    <div className="flex items-start gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50 mb-4">
-                                        <Activity className="w-5 h-5 text-warning-500 flex-shrink-0 mt-0.5" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('commonSymptoms')}</p>
-                                            <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                {weekKnowledge.commonSymptoms.slice(0, 4).join(' · ')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Tips Grid — Diet, Activity, Hydration, Medical */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                        <Apple className="w-5 h-5 text-gold-500 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('dietNutrition')}</p>
-                                            <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                {weekGuidance?.dietNotes || (weekKnowledge ? weekKnowledge.nutritionalFocus.slice(0, 2).join(' · ') : t('dietDefault'))}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                        <Dumbbell className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('activityWellness')}</p>
-                                            <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                {weekGuidance?.activityNotes || (weekKnowledge ? weekKnowledge.exerciseGuidance.slice(0, 2).join(' · ') : t('activityDefault'))}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {weekKnowledge && weekKnowledge.hydrationGuidance.length > 0 && (
-                                        <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                            <Droplets className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('hydration')}</p>
-                                                <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                    {weekKnowledge.hydrationGuidance.slice(0, 2).join(' · ')}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {weekKnowledge && weekKnowledge.medicalReminders.length > 0 && (
-                                        <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                            <Stethoscope className="w-5 h-5 text-surface-500 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('medicalReminders')}</p>
-                                                <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                    {weekKnowledge.medicalReminders.slice(0, 2).join(' · ')}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Warning Signs */}
-                                {(weekGuidance?.warningSigns || (weekKnowledge && weekKnowledge.warningSigns.length > 0)) && (
-                                    <div className="mt-4 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-800">
-                                        <p className="text-xs font-medium text-warning-700 dark:text-warning-300 mb-1">{t('warningTitle')}</p>
-                                        <p className="text-xs text-warning-600 dark:text-warning-400">
-                                            {weekGuidance?.warningSigns || weekKnowledge!.warningSigns.join(' · ')}
-                                        </p>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <div className="animate-pulse space-y-3">
-                                <div className="h-4 bg-surface-200 dark:bg-surface-700 rounded w-full" />
-                                <div className="h-4 bg-surface-200 dark:bg-surface-700 rounded w-3/4" />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="h-16 bg-surface-200 dark:bg-surface-700 rounded" />
-                                    <div className="h-16 bg-surface-200 dark:bg-surface-700 rounded" />
-                                </div>
-                            </div>
-                        )}
-                    </Card>
-                ) : (
-                    /* Postpartum Weekly Guidance */
-                    <Card variant="calm">
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <BookOpen className="w-5 h-5 text-razzmatazz-500" />
-                                <h3 className="font-display text-lg text-surface-800 dark:text-surface-200">
-                                    {t('thisWeekGuidance') || 'This Week\'s Guidance'}
-                                </h3>
-                            </div>
-                            <Link href="/weekly-journey" className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
-                                {t('fullJourney')} <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        </div>
-
-                        {postpartumKnowledge ? (
-                            <>
-                                {/* Summary */}
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Badge variant="primary">{postpartumKnowledge.phaseLabel}</Badge>
-                                    <span className="text-xs text-surface-500">{t('postpartumWeek') || 'Postpartum Week'} {postpartumKnowledge.week}</span>
-                                </div>
-                                <p className="text-sm text-surface-700 dark:text-surface-300 leading-relaxed mb-4">
-                                    {postpartumKnowledge.summary}
-                                </p>
-
-                                {/* Recovery & Body Changes */}
-                                {postpartumKnowledge.recoveryNotes.length > 0 && (
-                                    <div className="flex items-start gap-3 p-3 rounded-lg bg-razzmatazz-50 dark:bg-razzmatazz-900/10 mb-4">
-                                        <div className="w-10 h-10 rounded-full bg-razzmatazz-100 dark:bg-razzmatazz-800 flex items-center justify-center flex-shrink-0">
-                                            <Heart className="w-5 h-5 text-razzmatazz-600 dark:text-razzmatazz-300" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('yourRecovery') || 'Your Recovery'}</p>
-                                            <ul className="mt-2 space-y-1">
-                                                {postpartumKnowledge.recoveryNotes.slice(0, 3).map((item, i) => (
-                                                    <li key={i} className="flex items-start gap-1.5 text-xs text-surface-600 dark:text-surface-400">
-                                                        <span className="w-1 h-1 rounded-full bg-razzmatazz-400 mt-1.5 flex-shrink-0" />
-                                                        {item}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                            {postpartumKnowledge.bodyChanges.length > 0 && (
-                                                <div className="mt-2 pt-2 border-t border-razzmatazz-100 dark:border-razzmatazz-800/30">
-                                                    <p className="text-xs text-surface-500 mb-1">{t('bodyChanges') || 'Body Changes'}</p>
-                                                    <ul className="space-y-1">
-                                                        {postpartumKnowledge.bodyChanges.slice(0, 2).map((item, i) => (
-                                                            <li key={i} className="flex items-start gap-1.5 text-xs text-surface-600 dark:text-surface-400">
-                                                                <span className="w-1 h-1 rounded-full bg-surface-400 mt-1.5 flex-shrink-0" />
-                                                                {item}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Baby Development */}
-                                {postpartumKnowledge.babyDevelopment.length > 0 && (
-                                    <div className="flex items-start gap-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/10 mb-4">
-                                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center flex-shrink-0">
-                                            <Baby className="w-5 h-5 text-primary-600 dark:text-primary-300" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('babyDevelopment') || 'Baby Development'}</p>
-                                            <ul className="mt-2 space-y-1">
-                                                {postpartumKnowledge.babyDevelopment.slice(0, 3).map((item, i) => (
-                                                    <li key={i} className="flex items-start gap-1.5 text-xs text-surface-600 dark:text-surface-400">
-                                                        <span className="w-1 h-1 rounded-full bg-primary-400 mt-1.5 flex-shrink-0" />
-                                                        {item}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                            {postpartumKnowledge.babyCareNotes.length > 0 && (
-                                                <div className="mt-2 pt-2 border-t border-primary-100 dark:border-primary-800/30">
-                                                    <p className="text-xs text-surface-500 mb-1">{t('babyCareTips') || 'Baby Care Tips'}</p>
-                                                    <ul className="space-y-1">
-                                                        {postpartumKnowledge.babyCareNotes.slice(0, 2).map((item, i) => (
-                                                            <li key={i} className="flex items-start gap-1.5 text-xs text-surface-600 dark:text-surface-400">
-                                                                <span className="w-1 h-1 rounded-full bg-surface-400 mt-1.5 flex-shrink-0" />
-                                                                {item}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Support Grid — Mental Health, Nutrition, Activity */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {/* Mental Health */}
-                                    <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                        <Heart className="w-5 h-5 text-razzmatazz-400 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('mentalHealth') || 'Mental Health'}</p>
-                                            <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                {postpartumKnowledge.mentalHealthNotes.slice(0, 2).join(' · ')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {/* Nutrition */}
-                                    <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                        <Apple className="w-5 h-5 text-gold-500 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('dietNutrition') || 'Diet & Nutrition'}</p>
-                                            <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                {postpartumKnowledge.nutritionalFocus.slice(0, 2).join(' · ')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {/* Activity */}
-                                    <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                        <Dumbbell className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('activityWellness') || 'Activity & Wellness'}</p>
-                                            <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                {postpartumKnowledge.activityNotes.slice(0, 2).join(' · ')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {/* Weekly Guidance */}
-                                    {postpartumKnowledge.weeklyGuidance.length > 0 && (
-                                        <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                            <BookOpen className="w-5 h-5 text-surface-500 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('weeklyTips') || 'Weekly Tips'}</p>
-                                                <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                    {postpartumKnowledge.weeklyGuidance.slice(0, 2).join(' · ')}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Warning Signs */}
-                                {postpartumKnowledge.warningSigns.length > 0 && (
-                                    <div className="mt-4 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-800">
-                                        <p className="text-xs font-medium text-warning-700 dark:text-warning-300 mb-1">{t('warningTitle') || '⚠️ Warning Signs'}</p>
-                                        <ul className="space-y-1">
-                                            {postpartumKnowledge.warningSigns.slice(0, 4).map((sign, i) => (
-                                                <li key={i} className="flex items-start gap-1.5 text-xs text-warning-600 dark:text-warning-400">
-                                                    <span className="w-1 h-1 rounded-full bg-warning-500 mt-1.5 flex-shrink-0" />
-                                                    {sign}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            /* Fallback: show basic guidance from API or calculator */
-                            <>
-                                {weekGuidance ? (
-                                    <>
-                                        <p className="text-sm text-surface-700 dark:text-surface-300 leading-relaxed mb-4">
-                                            {weekGuidance.summary}
-                                        </p>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                                <Apple className="w-5 h-5 text-gold-500 flex-shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('dietNutrition')}</p>
-                                                    <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                        {weekGuidance.dietNotes || t('dietDefault')}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-3 p-3 rounded-lg bg-surface-50 dark:bg-surface-800/50">
-                                                <Dumbbell className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{t('activityWellness')}</p>
-                                                    <p className="text-xs text-surface-600 dark:text-surface-400 mt-0.5">
-                                                        {weekGuidance.activityNotes || t('activityDefault')}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {weekGuidance.warningSigns && (
-                                            <div className="mt-4 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-800">
-                                                <p className="text-xs font-medium text-warning-700 dark:text-warning-300 mb-1">{t('warningTitle')}</p>
-                                                <p className="text-xs text-warning-600 dark:text-warning-400">
-                                                    {weekGuidance.warningSigns}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="animate-pulse space-y-3">
-                                        <div className="h-4 bg-surface-200 dark:bg-surface-700 rounded w-full" />
-                                        <div className="h-4 bg-surface-200 dark:bg-surface-700 rounded w-3/4" />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="h-16 bg-surface-200 dark:bg-surface-700 rounded" />
-                                            <div className="h-16 bg-surface-200 dark:bg-surface-700 rounded" />
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </Card>
-                )}
-
                 {/* Bottom Grid — Symptoms + Appointments + Support */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Recent Symptoms */}
@@ -1484,6 +1279,95 @@ export default function MotherDashboard() {
                             <Send className="w-3.5 h-3.5" />
                             {savingNote ? (t('saving') || 'Saving...') : t('saveNote')}
                         </button>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                        {privateNotes.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-surface-200 dark:border-velvet-700 p-4 text-sm text-surface-500 dark:text-surface-400 text-center">
+                                No saved private notes yet.
+                            </div>
+                        ) : (
+                            privateNotes.map(note => (
+                                <div key={note.id} className="rounded-xl border border-surface-200 dark:border-velvet-700 bg-surface-50 dark:bg-velvet-900/50 p-4">
+                                    <div className="flex items-start justify-between gap-3 mb-2">
+                                        <div>
+                                            <p className="font-medium text-surface-800 dark:text-surface-100">{note.title}</p>
+                                            <p className="text-xs text-surface-500 dark:text-surface-400">
+                                                Saved {new Date(note.createdAt).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        <Badge variant="gold" className="flex items-center gap-1">
+                                            <EyeOff className="w-3 h-3" />
+                                            Private
+                                        </Badge>
+                                    </div>
+                                    {editingNoteId === note.id ? (
+                                        <div className="space-y-3 mb-4">
+                                            <textarea
+                                                className="input min-h-[90px]"
+                                                value={editingNoteBody}
+                                                onChange={e => setEditingNoteBody(e.target.value)}
+                                            />
+                                            <div className="flex flex-wrap justify-end gap-2">
+                                                <button
+                                                    className="btn-secondary btn-sm"
+                                                    onClick={cancelEditingNote}
+                                                    disabled={updatingNoteId === note.id}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    className="btn-primary btn-sm flex items-center gap-2"
+                                                    onClick={() => handleUpdateNote(note)}
+                                                    disabled={updatingNoteId === note.id || !editingNoteBody.trim()}
+                                                >
+                                                    {updatingNoteId === note.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                                    Save changes
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-surface-600 dark:text-surface-300 whitespace-pre-wrap mb-4">{note.body}</p>
+                                    )}
+                                    <div className="flex flex-wrap justify-end gap-2">
+                                        {editingNoteId !== note.id && (
+                                            <button
+                                                className="btn-secondary btn-sm flex items-center gap-2"
+                                                onClick={() => startEditingNote(note)}
+                                                disabled={updatingNoteId === note.id || deletingNoteId === note.id}
+                                            >
+                                                <Edit3 className="w-3.5 h-3.5" />
+                                                Edit
+                                            </button>
+                                        )}
+                                        <button
+                                            className="btn-secondary btn-sm flex items-center gap-2 text-danger-600 hover:text-danger-700"
+                                            onClick={() => handleDeleteNote(note.id)}
+                                            disabled={updatingNoteId === note.id || deletingNoteId === note.id}
+                                        >
+                                            {deletingNoteId === note.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                            Delete
+                                        </button>
+                                        <button
+                                            className="btn-secondary btn-sm flex items-center gap-2"
+                                            onClick={() => handleShareNote(note.id, 'partner')}
+                                            disabled={updatingNoteId === note.id || deletingNoteId === note.id || editingNoteId === note.id}
+                                        >
+                                            {updatingNoteId === note.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                                            Share with partner
+                                        </button>
+                                        <button
+                                            className="btn-primary btn-sm flex items-center gap-2"
+                                            onClick={() => handleShareNote(note.id, 'shared')}
+                                            disabled={updatingNoteId === note.id || deletingNoteId === note.id || editingNoteId === note.id}
+                                        >
+                                            {updatingNoteId === note.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                            Move to shared notes
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </Card>
             </div>

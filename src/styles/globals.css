@@ -623,9 +623,19 @@
     }
 }
 
+@keyframes shrinkWidth {
+    from {
+        width: 100%;
+    }
+
+    to {
+        width: 0%;
+    }
+}
+
 /* ─── Figma Landing Page ─── */
 .landing-step-number {
-    background: linear-gradient(180deg, #cdb4db 0%, #ffffff 77.135%);
+    background: linear-gradient(180deg, #DAD5EF 0%, #ffffff 77.135%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

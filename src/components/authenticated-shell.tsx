@@ -63,7 +63,6 @@ function useNavItems(): NavItem[] {
         { labelKey: 'supportActions', href: '/partner/tasks', icon: ClipboardList, roles: ['partner'] },
         // Shared
         { labelKey: 'sharedSpace', href: '/shared', icon: Users, roles: ['mother', 'partner', 'caregiver', 'family'] },
-        { labelKey: 'taskBoard', href: '/shared/tasks', icon: ClipboardList, roles: ['mother', 'partner', 'caregiver', 'family'] },
         { labelKey: 'chatAssistant', href: '/chat', icon: MessageCircle, roles: ['mother', 'partner', 'caregiver', 'family'] },
         { labelKey: 'notifications', href: '/notifications', icon: Bell, roles: ['mother', 'partner', 'caregiver', 'family'] },
         { labelKey: 'settings', href: '/settings', icon: Settings, roles: ['mother', 'partner', 'caregiver', 'family'] },

@@ -3,6 +3,7 @@ import { logger } from './logger';
 import prisma from './prisma';
 import { detectEmergencyKeywords, computePregnancyWeek, computePregnancyWeekFromDueDate } from './utils';
 import { pregnancyKnowledgeBase } from './pregnancy-knowledge';
+import { formatSourceLegend } from './source-abbreviations';
 
 // ─── Chatbot Types ───
 
@@ -248,6 +249,16 @@ Many users type their native language using the Latin alphabet (English keyboard
 - Celebrate milestones and positive news: "That's wonderful! 🎉💕"
 - When giving reassurance: "You're doing great! 💪🌸"
 - Emergency responses should still use ⚠️🚨 but remain compassionate, not robotic
+
+📚 SOURCE ABBREVIATIONS — When users ask "where does this information come from?" or "is this reliable?", explain that all MaternalCare guidance is backed by these trusted health organizations. Use these abbreviations to cite sources naturally in your responses (e.g., "According to WHO and MOHFW guidelines..."). The abbreviations that appear in the platform's weekly content are:
+
+${formatSourceLegend('en')}
+
+🔖 CITING SOURCES IN RESPONSES:
+- When giving health advice, naturally mention the source: "According to WHO guidelines..." or "MOHFW recommends..."
+- Use the source abbreviations in context — don't just list them at the end
+- Prioritize Indian sources (MOHFW, IAP, FOGSI, ICMR, NIN) when discussing India-specific context
+- If a user questions the reliability of advice, you can explain: "This guidance comes from the World Health Organization (WHO) and India's Ministry of Health & Family Welfare (MOHFW) — both trusted health authorities"
 
 USER CONTEXT:
 ${userContext}

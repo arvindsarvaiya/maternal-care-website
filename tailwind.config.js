@@ -180,12 +180,30 @@ module.exports = {
                 },
                 // Figma landing page palette
                 'figma': {
-                    mauve: '#a86b81',
-                    pill: '#a997b4',
+                    purple: '#9511F4',
+                    magenta: '#D6006D',
+                    navy: '#0A4A9B',
+                    softBlue: '#4A698F',
                     slate: '#56616b',
                     pink: '#ffc8dd',
                     blue: '#bde0fe',
-                    lavender: '#cdb4db',
+                    lavender: '#DAD5EF',
+                    gold: '#FFD359',
+                    lightGold: '#FFE089',
+                    orange: '#F7941D',
+                    lightBlue: '#E8F4FF',
+                    lightPink: '#FFF0F6',
+                    cream: '#FFFBEF',
+                    skyBlue: '#D0E9FF',
+                    iceBlue: '#E7F4FF',
+                    // Gradients
+                    gradientPink: '#FFC8DD',
+                    gradientLavender: '#DAD5EF',
+                    gradientBlue: '#BDE0FE',
+                    gradientPurple: '#C1ADFB',
+                    gradientSky: '#A6DAFC',
+                    // Dark backgrounds
+                    dark: '#181B25',
                 },
 
                 'danger': {
@@ -208,6 +226,7 @@ module.exports = {
                 'inter': ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
                 'hindi': ['var(--font-hindi)', 'Noto Sans Devanagari', 'sans-serif'],
                 'yatra': ['var(--font-yatra)', 'Yatra One', 'cursive'],
+                'outfit': ['var(--font-outfit)', 'Outfit', 'system-ui', 'sans-serif'],
             },
 
             fontSize: {
@@ -220,6 +239,8 @@ module.exports = {
                 '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
                 '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
                 '5xl': ['3rem', { lineHeight: '1.2' }],
+                '6xl': ['3.75rem', { lineHeight: '1.15' }],
+                '7xl': ['4.5rem', { lineHeight: '1.1' }],
             },
 
             spacing: {
@@ -233,6 +254,8 @@ module.exports = {
                 'lg': '0.75rem',
                 'xl': '1rem',
                 '2xl': '1.5rem',
+                '3xl': '2rem',
+                '4xl': '2.5rem',
                 'full': '9999px',
             },
 
@@ -243,12 +266,19 @@ module.exports = {
                 'glow': '0 0 20px rgba(222, 167, 105, 0.3)',
                 'glow-strong': '0 0 30px rgba(222, 167, 105, 0.5)',
                 'focus': '0 0 0 3px rgba(113, 35, 140, 0.3)',
+                'figma': '0 4px 20px rgba(0, 0, 0, 0.06)',
+                'figma-hover': '0 8px 32px rgba(149, 17, 244, 0.12)',
             },
 
             backgroundImage: {
                 'mandala-gradient': 'radial-gradient(circle at center, var(--tw-gradient-from) 0%, var(--tw-gradient-to) 70%)',
                 'rangoli-dots': 'radial-gradient(circle, var(--tw-gradient-from) 1px, transparent 1px)',
                 'henna-swirl': 'linear-gradient(135deg, var(--tw-gradient-from), var(--tw-gradient-to))',
+                // Figma landing gradients
+                'figma-card-pink': 'linear-gradient(180deg, rgba(255, 200, 221, 0.5) 0%, rgba(218, 213, 239, 0.5) 48%, rgba(189, 224, 254, 0.5) 100%)',
+                'figma-card-white-pink': 'linear-gradient(179.94deg, rgb(255, 255, 255) 0%, rgb(255, 200, 221) 113.98%)',
+                'figma-card-white-blue': 'linear-gradient(179.94deg, rgb(255, 255, 255) 0%, rgb(189, 224, 254) 113.98%)',
+                'figma-hero': 'linear-gradient(180deg, #FFF0F6 0%, #E8F4FF 100%)',
             },
 
             animation: {

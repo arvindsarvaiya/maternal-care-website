@@ -99,30 +99,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col font-yatra">
-      {/* Background image */}
+    <div className="min-h-screen relative flex flex-col font-yatra bg-[#F7EDFF]">
+      {/* Background image overlay at 30% opacity */}
       <div
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-50"
-        style={{ backgroundImage: 'url(/images/login_background.png)' }}
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-30 pointer-events-none"
+        style={{ backgroundImage: "url('/images/signup-bg.png')" }}
       />
 
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-surface-200">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
           <Link href="/home" className="no-underline shrink-0">
-            <span className="font-semibold text-[#a86b81] text-xl">MaternalCare</span>
+            <span className="font-semibold text-[#9511F4] text-xl">MaternalCare</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
-            <Link href="/home" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
+            <Link href="/home" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
               {n('home')}
             </Link>
-            <Link href="/about" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
+            <Link href="/about" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
               {n('about')}
             </Link>
-            <Link href="/faq" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
+            <Link href="/faq" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
               {n('faq')}
             </Link>
-            <Link href="/facts-and-myths" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
+            <Link href="/facts-and-myths" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
               {n('factsAndMyths')}
             </Link>
           </nav>
@@ -130,16 +130,16 @@ export default function LoginPage() {
             <LanguageButton />
             {/* Mobile nav links */}
             <div className="flex items-center gap-1 md:hidden">
-              <Link href="/home" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+              <Link href="/home" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
                 {n('home')}
               </Link>
-              <Link href="/about" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+              <Link href="/about" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
                 {n('about')}
               </Link>
-              <Link href="/faq" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+              <Link href="/faq" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
                 {n('faq')}
               </Link>
-              <Link href="/facts-and-myths" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+              <Link href="/facts-and-myths" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
                 {n('factsAndMyths')}
               </Link>
             </div>
@@ -153,10 +153,10 @@ export default function LoginPage() {
             {!show2FA ? (
               <>
                 <div className="text-center mb-8">
-                  <h1 className="text-2xl font-yatra text-gradient-mandala mb-2">
+                  <h1 className="text-2xl font-yatra mb-2" style={{ background: 'linear-gradient(96.55deg, #9511F4 4.98%, #D6006D 101.86%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                     {t('title')}
                   </h1>
-                  <p className="text-surface-500 text-sm">
+                  <p className="text-[#4A698F] text-sm">
                     {t('subtitle')}
                   </p>
                 </div>
@@ -186,7 +186,7 @@ export default function LoginPage() {
                   />
 
                   <div className="text-right">
-                    <Link href="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700 no-underline">
+                    <Link href="/forgot-password" className="text-sm text-[#9511F4] hover:text-[#7a0ed4] no-underline">
                       {t('forgotPassword')}
                     </Link>
                   </div>
@@ -204,7 +204,7 @@ export default function LoginPage() {
 
                 <p className="mt-6 text-center text-sm text-surface-500">
                   {t('noAccount')}{' '}
-                  <Link href="/signup" className="text-primary-600 hover:text-primary-700 no-underline font-medium">
+                  <Link href="/signup" className="text-[#9511F4] hover:text-[#7a0ed4] no-underline font-medium">
                     {t('createOne')}
                   </Link>
                 </p>
@@ -212,10 +212,10 @@ export default function LoginPage() {
             ) : (
               <>
                 <div className="text-center mb-8">
-                  <h1 className="text-2xl font-yatra text-gradient-mandala mb-2">
+                  <h1 className="text-2xl font-yatra mb-2" style={{ background: 'linear-gradient(96.55deg, #9511F4 4.98%, #D6006D 101.86%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                     {t('twoFactorTitle')}
                   </h1>
-                  <p className="text-surface-500 text-sm">
+                  <p className="text-[#4A698F] text-sm">
                     {t('twoFactorSubtitle')}
                   </p>
                 </div>
@@ -256,7 +256,7 @@ export default function LoginPage() {
 
                 <button
                   onClick={handleBackToCredentials}
-                  className="mt-6 w-full text-center text-sm text-surface-500 hover:text-primary-600 transition-colors"
+                  className="mt-6 w-full text-center text-sm text-surface-500 hover:text-[#9511F4] transition-colors"
                 >
                   {t('backToSignIn')}
                 </button>
@@ -266,9 +266,6 @@ export default function LoginPage() {
         </div>
       </main>
 
-      <footer className="border-t border-surface-200 py-8 relative z-10">
-        <p className="text-center text-xs text-surface-400">{c('disclaimer')}</p>
-      </footer>
     </div>
   );
 }

@@ -1,616 +1,823 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
-import { useAuth } from '@/components/auth-provider';
+import { Badge, Card, ProgressBar } from '@/components/ui';
 import { api } from '@/lib/api-client';
 import {
-    Card,
-    Badge,
-} from '@/components/ui';
-import {
-    MessageSquare,
-    StickyNote,
-    CheckSquare,
-    CalendarDays,
-    TrendingUp,
-    Heart,
     Baby,
-    ArrowRight,
-    Star,
+    Camera,
+    Check,
+    Edit3,
+    Gift,
+    Heart,
+    ImagePlus,
     Loader2,
-    AlertCircle,
+    MessageSquare,
+    Plus,
+    Sparkles,
+    Trash2,
+    Trophy,
+    X,
 } from 'lucide-react';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface SharedUpdate {
+interface BabyNameOption {
     id: string;
-    type: 'note' | 'task' | 'appointment' | 'mood';
+    name: string;
+    meaning: string;
+    votes: number;
+    liked: boolean;
+    createdBy: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
+}
+
+interface BabyNamesResponse {
+    names: BabyNameOption[];
+}
+
+interface WishlistItem {
+    id: string;
     title: string;
-    description: string;
-    author: 'mother' | 'partner';
-    timestamp: string;
-    metadata?: string;
+    category: string;
+    priority: 'high' | 'medium' | 'low';
+    done: boolean;
+    createdBy: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
 }
 
-interface UpcomingMilestone {
-    week: number;
+interface WishlistResponse {
+    items: WishlistItem[];
+}
+
+interface MemoryItem {
+    id: string;
     title: string;
-    description: string;
-    icon: React.ElementType;
+    caption: string;
+    imageData: string | null;
+    imageMimeType: string | null;
+    createdAt: string;
+    createdBy: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
 }
 
-interface QuickStat {
-    value: string;
-    change: string;
-    color: string;
-    labelKey: string;
+interface MemoriesResponse {
+    memories: MemoryItem[];
 }
 
-// ─── API Types ────────────────────────────────────────────────────────────────
-
-interface ApiNote {
+interface SharedNote {
     id: string;
     title: string;
     body: string;
-    createdBy: { id: string; firstName: string; lastName: string };
+    visibility: 'private' | 'shared' | 'partner';
     createdAt: string;
+    updatedAt: string;
+    createdBy: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
 }
 
-interface ApiTask {
-    id: string;
-    status: { name: string } | null;
-    title: string;
-    description: string | null;
-    createdBy: { id: string; firstName: string; lastName: string };
-    createdAt: string;
+interface NotesResponse {
+    notes: SharedNote[];
 }
 
-interface ApiAppointment {
-    id: string;
-    title: string;
-    status: string;
-    scheduledAt: string;
-    notes: string | null;
-    createdBy: { id: string; firstName: string; lastName: string };
-    createdAt: string;
+const MAX_MEMORY_IMAGE_WIDTH = 1000;
+const MAX_MEMORY_IMAGE_HEIGHT = 1000;
+const MEMORY_IMAGE_QUALITY = 0.72;
+
+async function compressMemoryImage(file: File): Promise<{ imageData: string; imageMimeType: string }> {
+    const imageUrl = URL.createObjectURL(file);
+
+    try {
+        const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = imageUrl;
+        });
+
+        const scale = Math.min(MAX_MEMORY_IMAGE_WIDTH / image.width, MAX_MEMORY_IMAGE_HEIGHT / image.height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Could not compress image');
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        return {
+            imageData: canvas.toDataURL('image/jpeg', MEMORY_IMAGE_QUALITY),
+            imageMimeType: 'image/jpeg',
+        };
+    } finally {
+        URL.revokeObjectURL(imageUrl);
+    }
 }
-
-interface ApiWellnessLog {
-    id: string;
-    mood: number | null;
-    createdAt: string;
-}
-
-interface ApiWeekContent {
-    id: string;
-    weekNumber: number;
-    title: string;
-    summary: string | null;
-}
-
-interface ApiPregnancy {
-    currentPregnancyWeek: number;
-}
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-const TYPE_CONFIG: Record<SharedUpdate['type'], { icon: React.ElementType; color: string; badgeVariant: 'primary' | 'razzmatazz' | 'gold'; typeKey: string }> = {
-    note: { icon: StickyNote, color: 'text-gold-600 dark:text-gold-400', badgeVariant: 'gold', typeKey: 'sharedNote' },
-    task: { icon: CheckSquare, color: 'text-primary-600 dark:text-primary-400', badgeVariant: 'primary', typeKey: 'sharedTask' },
-    appointment: { icon: CalendarDays, color: 'text-razzmatazz-600 dark:text-razzmatazz-400', badgeVariant: 'razzmatazz', typeKey: 'appointment' },
-    mood: { icon: Heart, color: 'text-razzmatazz-600 dark:text-razzmatazz-400', badgeVariant: 'razzmatazz', typeKey: 'moodUpdate' },
-};
-
-const MILESTONE_ICONS: React.ElementType[] = [Baby, TrendingUp, Heart];
-
-const modules = [
-    {
-        href: '/shared/tasks',
-        icon: CheckSquare,
-        labelKey: 'moduleTasks',
-        descKey: 'moduleTasksDesc',
-        color: 'text-primary-600 dark:text-primary-400',
-        bg: 'bg-primary-50 dark:bg-primary-900/30',
-        border: 'border-primary-200 dark:border-primary-800',
-    },
-    {
-        href: '/shared/notes',
-        icon: StickyNote,
-        labelKey: 'moduleNotes',
-        descKey: 'moduleNotesDesc',
-        color: 'text-gold-600 dark:text-gold-400',
-        bg: 'bg-gold-50 dark:bg-gold-900/30',
-        border: 'border-gold-200 dark:border-gold-800',
-    },
-    {
-        href: '/appointments',
-        icon: CalendarDays,
-        labelKey: 'moduleCalendar',
-        descKey: 'moduleCalendarDesc',
-        color: 'text-razzmatazz-600 dark:text-razzmatazz-400',
-        bg: 'bg-razzmatazz-50 dark:bg-razzmatazz-900/30',
-        border: 'border-razzmatazz-200 dark:border-razzmatazz-800',
-    },
-    {
-        href: '/chat',
-        icon: MessageSquare,
-        labelKey: 'moduleChat',
-        descKey: 'moduleChatDesc',
-        color: 'text-razzmatazz-600 dark:text-razzmatazz-400',
-        bg: 'bg-razzmatazz-50 dark:bg-razzmatazz-900/30',
-        border: 'border-razzmatazz-200 dark:border-razzmatazz-800',
-    },
-];
-
-// ─── Components ──────────────────────────────────────────────────────────────
-
-function UpdateCard({ update, t }: { update: SharedUpdate; t: ReturnType<typeof import('next-intl').useTranslations<string>> }) {
-    const typeInfo = TYPE_CONFIG[update.type];
-    const Icon = typeInfo.icon;
-
-    return (
-        <div className="flex items-start gap-4 p-4 rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 hover:shadow-soft transition-shadow">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-100 dark:bg-velvet-800 ${typeInfo.color}`}>
-                <Icon className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <Badge variant={typeInfo.badgeVariant}>{t(typeInfo.typeKey as any)}</Badge>
-                    {update.metadata && (
-                        <span className="text-xs text-surface-400">{update.metadata}</span>
-                    )}
-                </div>
-                <h4 className="font-semibold text-sm text-velvet-900 dark:text-surface-100">
-                    {update.title}
-                </h4>
-                <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 line-clamp-2">
-                    {update.description}
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-surface-400">
-                        {update.author === 'mother' ? `👩 ${t('mom')}` : `👨 ${t('partner')}`}
-                    </span>
-                    <span className="text-xs text-surface-300">•</span>
-                    <span className="text-xs text-surface-400">
-                        {new Date(update.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </span>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function OverviewSkeleton() {
-    return (
-        <div className="max-w-6xl mx-auto space-y-6 animate-pulse">
-            <div className="space-y-2">
-                <div className="h-8 w-64 bg-surface-200 dark:bg-velvet-700 rounded" />
-                <div className="h-4 w-96 bg-surface-200 dark:bg-velvet-700 rounded" />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map(i => (
-                    <Card key={i} padding="sm" className="text-center">
-                        <div className="h-7 w-12 bg-surface-200 dark:bg-velvet-700 rounded mx-auto mb-2" />
-                        <div className="h-3 w-16 bg-surface-200 dark:bg-velvet-700 rounded mx-auto mb-1" />
-                        <div className="h-3 w-20 bg-surface-200 dark:bg-velvet-700 rounded mx-auto" />
-                    </Card>
-                ))}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="p-5 rounded-2xl border border-surface-200 dark:border-velvet-700">
-                        <div className="h-7 w-7 bg-surface-200 dark:bg-velvet-700 rounded mb-3" />
-                        <div className="h-5 w-20 bg-surface-200 dark:bg-velvet-700 rounded mb-1" />
-                        <div className="h-3 w-28 bg-surface-200 dark:bg-velvet-700 rounded" />
-                    </div>
-                ))}
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2" padding="none">
-                    <div className="p-5 border-b border-surface-200 dark:border-velvet-700">
-                        <div className="h-6 w-36 bg-surface-200 dark:bg-velvet-700 rounded" />
-                    </div>
-                    <div className="p-5 space-y-3">
-                        {[1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-surface-200 dark:border-velvet-700">
-                                <div className="w-10 h-10 rounded-full bg-surface-200 dark:bg-velvet-700" />
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-4 w-20 bg-surface-200 dark:bg-velvet-700 rounded" />
-                                    <div className="h-4 w-40 bg-surface-200 dark:bg-velvet-700 rounded" />
-                                    <div className="h-3 w-32 bg-surface-200 dark:bg-velvet-700 rounded" />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
-                <Card>
-                    <div className="h-6 w-44 bg-surface-200 dark:bg-velvet-700 rounded mb-4" />
-                    <div className="space-y-4">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="flex items-start gap-3">
-                                <div className="w-10 h-10 rounded-full bg-surface-200 dark:bg-velvet-700" />
-                                <div className="flex-1 space-y-1">
-                                    <div className="h-4 w-16 bg-surface-200 dark:bg-velvet-700 rounded" />
-                                    <div className="h-4 w-32 bg-surface-200 dark:bg-velvet-700 rounded" />
-                                    <div className="h-3 w-24 bg-surface-200 dark:bg-velvet-700 rounded" />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
-            </div>
-        </div>
-    );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function moodTitle(mood: number): string {
-    if (mood >= 5) return 'Feeling great! 😄';
-    if (mood >= 4) return 'Feeling good 🙂';
-    if (mood >= 3) return 'Feeling okay 😐';
-    if (mood >= 2) return 'Feeling low 😔';
-    return 'Feeling down 😢';
-}
-
-function formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function formatTime(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
-
-// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function SharedSpacePage() {
     const t = useTranslations('shared');
-    const { user, getDashboardUrl } = useAuth();
-    const currentUserId = user?.id || '';
+    const [names, setNames] = useState<BabyNameOption[]>([]);
+    const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+    const [memories, setMemories] = useState<MemoryItem[]>([]);
+    const [memoryTitle, setMemoryTitle] = useState('');
+    const [memoryCaption, setMemoryCaption] = useState('');
+    const [memoryImageData, setMemoryImageData] = useState<string | null>(null);
+    const [memoryImageMimeType, setMemoryImageMimeType] = useState<string | null>(null);
+    const [memoryImageName, setMemoryImageName] = useState('');
+    const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
+    const [removeCurrentMemoryImage, setRemoveCurrentMemoryImage] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newMeaning, setNewMeaning] = useState('');
+    const [newWishlistTitle, setNewWishlistTitle] = useState('');
+    const [newWishlistCategory, setNewWishlistCategory] = useState('');
+    const [newWishlistPriority, setNewWishlistPriority] = useState<'high' | 'medium' | 'low'>('medium');
+    const [namesLoading, setNamesLoading] = useState(true);
+    const [namesSaving, setNamesSaving] = useState(false);
+    const [namesError, setNamesError] = useState<string | null>(null);
+    const [wishlistLoading, setWishlistLoading] = useState(true);
+    const [wishlistSaving, setWishlistSaving] = useState(false);
+    const [wishlistError, setWishlistError] = useState<string | null>(null);
+    const [memoriesLoading, setMemoriesLoading] = useState(true);
+    const [memorySaving, setMemorySaving] = useState(false);
+    const [memoryCompressing, setMemoryCompressing] = useState(false);
+    const [memoryError, setMemoryError] = useState<string | null>(null);
+    const [notes, setNotes] = useState<SharedNote[]>([]);
+    const [notesLoading, setNotesLoading] = useState(true);
+    const [notesError, setNotesError] = useState<string | null>(null);
+    const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
-    const [loading, setLoading] = useState(true);
-    const [dashboardUrl, setDashboardUrl] = useState<string>('/mother');
-
-    // Fetch dashboard URL
-    useEffect(() => {
-        if (user?.roles) {
-            getDashboardUrl(user.roles).then(setDashboardUrl);
-        }
-    }, [user?.roles, getDashboardUrl]);
-    const [error, setError] = useState<string | null>(null);
-    const [quickStats, setQuickStats] = useState<QuickStat[]>([]);
-    const [recentUpdates, setRecentUpdates] = useState<SharedUpdate[]>([]);
-    const [milestones, setMilestones] = useState<UpcomingMilestone[]>([]);
-
-    const fetchData = useCallback(async () => {
+    const fetchNames = useCallback(async () => {
         try {
-            setLoading(true);
-            setError(null);
-
-            // Fetch pregnancy profile first to get current week
-            // NOTE: /profile/pregnancy returns the raw PregnancyProfile, not a wrapped object
-            let currentWeek = 0;
-            try {
-                const pregnancyRes = await api.get<ApiPregnancy | null>('/profile/pregnancy');
-                currentWeek = pregnancyRes?.currentPregnancyWeek || 0;
-            } catch {
-                // pregnancy profile may not exist yet (e.g. partner viewing this page)
-            }
-
-            // Fallback: if no pregnancy profile (e.g. partner viewing shared page),
-            // fetch from the partner/mother-health endpoint which resolves the mother's week
-            if (currentWeek === 0) {
-                try {
-                    const motherHealthRes = await api.get<{ currentWeek: number }>('/partner/mother-health');
-                    currentWeek = motherHealthRes.currentWeek || 0;
-                } catch {
-                    // mother-health endpoint also unavailable
-                }
-            }
-
-            // Fetch all data in parallel
-            const [notesRes, tasksRes, appointmentsRes, wellnessRes, weekRes] = await Promise.all([
-                api.get<{ notes: ApiNote[]; total: number }>('/notes?limit=5'),
-                api.get<{ tasks: ApiTask[]; total: number }>('/tasks?limit=5'),
-                api.get<{ appointments: ApiAppointment[]; total: number }>('/appointments?limit=10'),
-                api.get<{ logs: ApiWellnessLog[]; total: number }>('/wellness?limit=30'),
-                currentWeek > 0
-                    ? api.get<{ content: ApiWeekContent[] }>('/weekly-journey?limit=42')
-                    : Promise.resolve({ content: [] as ApiWeekContent[] }),
-            ]);
-
-            const notes = notesRes.notes || [];
-            const tasks = tasksRes.tasks || [];
-            const appointments = appointmentsRes.appointments || [];
-            const wellnessLogs = wellnessRes.logs || [];
-            const weekContent = weekRes.content || [];
-
-            // ─── Quick Stats ───
-            const totalNotes = notesRes.total || 0;
-            const totalTasks = tasksRes.total || 0;
-            const completedTasks = tasks.filter(tk => tk.status?.name === 'done').length;
-            const upcomingApps = appointments.filter(a => a.status === 'upcoming' || a.status === 'scheduled');
-            const upcomingCount = upcomingApps.length;
-            const nextAppointment = upcomingApps.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
-            const nextApptDate = nextAppointment ? formatTime(nextAppointment.scheduledAt) : null;
-
-            const moodLogs = wellnessLogs.filter(l => l.mood != null);
-            const avgMood = moodLogs.length > 0
-                ? (moodLogs.reduce((sum, l) => sum + (l.mood || 0), 0) / moodLogs.length).toFixed(1)
-                : '—';
-
-            setQuickStats([
-                {
-                    value: String(totalNotes),
-                    change: t('sharedNotes'),
-                    color: 'text-primary-600',
-                    labelKey: 'sharedNotes',
-                },
-                {
-                    value: `${completedTasks}/${totalTasks}`,
-                    change: totalTasks > 0 ? `${Math.round((completedTasks / totalTasks) * 100)}% ${t('complete')}` : t('noTasks'),
-                    color: 'text-gold-600',
-                    labelKey: 'tasksDone',
-                },
-                {
-                    value: String(upcomingCount),
-                    change: nextApptDate ? `${t('nextAppointment')}: ${nextApptDate}` : t('appointments'),
-                    color: 'text-razzmatazz-600',
-                    labelKey: 'appointments',
-                },
-                {
-                    value: avgMood,
-                    change: moodLogs.length > 0 ? `${t('basedOn')} ${moodLogs.length} ${t('logs')}` : t('noData'),
-                    color: 'text-razzmatazz-600',
-                    labelKey: 'moodScore',
-                },
-            ]);
-
-            // ─── Recent Activity Feed ───
-            const activityItems: SharedUpdate[] = [];
-
-            // Notes
-            for (const note of notes) {
-                activityItems.push({
-                    id: `note-${note.id}`,
-                    type: 'note',
-                    title: note.title,
-                    description: note.body || '',
-                    author: note.createdBy?.id === currentUserId ? 'mother' : 'partner',
-                    timestamp: note.createdAt,
-                });
-            }
-
-            // Tasks
-            for (const task of tasks) {
-                const statusLabel = task.status?.name === 'done' ? 'Completed' : task.status?.name === 'in_progress' ? 'In Progress' : 'Pending';
-                activityItems.push({
-                    id: `task-${task.id}`,
-                    type: 'task',
-                    title: task.title,
-                    description: task.description || '',
-                    author: task.createdBy?.id === currentUserId ? 'mother' : 'partner',
-                    timestamp: task.createdAt,
-                    metadata: statusLabel,
-                });
-            }
-
-            // Appointments
-            for (const appt of appointments) {
-                activityItems.push({
-                    id: `appt-${appt.id}`,
-                    type: 'appointment',
-                    title: appt.title,
-                    description: appt.notes || '',
-                    author: appt.createdBy?.id === currentUserId ? 'mother' : 'partner',
-                    timestamp: appt.createdAt,
-                    metadata: formatDate(appt.scheduledAt),
-                });
-            }
-
-            // Mood logs
-            for (const log of moodLogs.slice(0, 5)) {
-                if (log.mood != null) {
-                    activityItems.push({
-                        id: `mood-${log.id}`,
-                        type: 'mood',
-                        title: moodTitle(log.mood),
-                        description: '',
-                        author: 'mother',
-                        timestamp: log.createdAt,
-                        metadata: `Mood: ${log.mood}/5`,
-                    });
-                }
-            }
-
-            // Sort by timestamp descending and take top 5
-            activityItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-            setRecentUpdates(activityItems.slice(0, 5));
-
-            // ─── Milestones ───
-            if (currentWeek > 0 && weekContent.length > 0) {
-                const upcoming = weekContent
-                    .filter(c => c.weekNumber >= currentWeek)
-                    .sort((a, b) => a.weekNumber - b.weekNumber)
-                    .slice(0, 3)
-                    .map((c, i) => ({
-                        week: c.weekNumber,
-                        title: c.title,
-                        description: c.summary || '',
-                        icon: MILESTONE_ICONS[i % MILESTONE_ICONS.length],
-                    }));
-                setMilestones(upcoming);
-            }
-        } catch (err: any) {
-            console.error('Failed to fetch shared overview data:', err);
-            setError(err?.message || 'Failed to load data');
+            setNamesError(null);
+            const data = await api.get<BabyNamesResponse>('/shared/baby-names');
+            setNames(data.names || []);
+        } catch {
+            setNamesError(t('nameLoadError'));
         } finally {
-            setLoading(false);
+            setNamesLoading(false);
         }
-    }, [currentUserId, t]);
+    }, [t]);
+
+    const fetchWishlist = useCallback(async () => {
+        try {
+            setWishlistError(null);
+            const data = await api.get<WishlistResponse>('/shared/baby-wishlist');
+            setWishlist(data.items || []);
+        } catch {
+            setWishlistError(t('wishlistLoadError'));
+        } finally {
+            setWishlistLoading(false);
+        }
+    }, [t]);
+
+    const fetchMemories = useCallback(async () => {
+        try {
+            setMemoryError(null);
+            const data = await api.get<MemoriesResponse>('/shared/memories');
+            setMemories(data.memories || []);
+        } catch {
+            setMemoryError(t('memoryLoadError'));
+        } finally {
+            setMemoriesLoading(false);
+        }
+    }, [t]);
+
+    const fetchNotes = useCallback(async () => {
+        try {
+            setNotesError(null);
+            const data = await api.get<NotesResponse>('/notes');
+            setNotes((data.notes || []).filter(note => note.visibility !== 'private'));
+        } catch {
+            setNotesError('Could not load shared notes. Please try again.');
+        } finally {
+            setNotesLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchNames();
+        fetchWishlist();
+        fetchMemories();
+        fetchNotes();
+    }, [fetchNames, fetchWishlist, fetchMemories, fetchNotes]);
 
-    // ─── Loading State ───
-    if (loading) {
-        return (
-            <AuthenticatedShell>
-                <OverviewSkeleton />
-            </AuthenticatedShell>
-        );
-    }
+    const completedWishlist = wishlist.filter(item => item.done).length;
+    const likedNames = names.filter(name => name.liked).length;
+    const totalVotes = names.reduce((sum, name) => sum + name.votes, 0);
+    const wishlistProgress = wishlist.length > 0 ? Math.round((completedWishlist / wishlist.length) * 100) : 0;
+    const memoryProgress = Math.min(memories.length * 25, 100);
+    const nameProgress = Math.min(likedNames * 25, 100);
 
-    // ─── Render ───
+    const overallProgress = useMemo(() => {
+        return Math.round((wishlistProgress + memoryProgress + nameProgress) / 3);
+    }, [wishlistProgress, memoryProgress, nameProgress]);
+
+    const topName = useMemo(() => {
+        return names.length > 0 ? [...names].sort((a, b) => b.votes - a.votes)[0] : null;
+    }, [names]);
+
+    const resetMemoryForm = () => {
+        setMemoryTitle('');
+        setMemoryCaption('');
+        setMemoryImageData(null);
+        setMemoryImageMimeType(null);
+        setMemoryImageName('');
+        setEditingMemoryId(null);
+        setRemoveCurrentMemoryImage(false);
+    };
+
+    const handleAddName = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!newName.trim()) return;
+
+        try {
+            setNamesSaving(true);
+            setNamesError(null);
+            const data = await api.post<BabyNamesResponse>('/shared/baby-names', {
+                name: newName.trim(),
+                meaning: newMeaning.trim(),
+            });
+            setNames(data.names || []);
+            setNewName('');
+            setNewMeaning('');
+        } catch {
+            setNamesError(t('nameSaveError'));
+        } finally {
+            setNamesSaving(false);
+        }
+    };
+
+    const toggleName = async (id: string) => {
+        const previousNames = names;
+        setNames(prev => prev.map(name => {
+            if (name.id !== id) return name;
+            return {
+                ...name,
+                liked: !name.liked,
+                votes: Math.max(0, name.votes + (name.liked ? -1 : 1)),
+            };
+        }));
+
+        try {
+            setNamesError(null);
+            await api.patch(`/shared/baby-names/${id}`);
+            await fetchNames();
+        } catch {
+            setNames(previousNames);
+            setNamesError(t('nameSaveError'));
+        }
+    };
+
+    const deleteName = async (id: string) => {
+        const previousNames = names;
+        setNames(prev => prev.filter(name => name.id !== id));
+
+        try {
+            setNamesError(null);
+            await api.delete(`/shared/baby-names/${id}`);
+        } catch {
+            setNames(previousNames);
+            setNamesError(t('nameDeleteError'));
+        }
+    };
+
+    const handleAddWishlistItem = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!newWishlistTitle.trim()) return;
+
+        try {
+            setWishlistSaving(true);
+            setWishlistError(null);
+            const data = await api.post<WishlistResponse>('/shared/baby-wishlist', {
+                title: newWishlistTitle.trim(),
+                category: newWishlistCategory.trim(),
+                priority: newWishlistPriority,
+            });
+            setWishlist(data.items || []);
+            setNewWishlistTitle('');
+            setNewWishlistCategory('');
+            setNewWishlistPriority('medium');
+        } catch {
+            setWishlistError(t('wishlistSaveError'));
+        } finally {
+            setWishlistSaving(false);
+        }
+    };
+
+    const toggleWishlist = async (id: string) => {
+        const previousWishlist = wishlist;
+        setWishlist(prev => prev.map(item => item.id === id ? { ...item, done: !item.done } : item));
+
+        try {
+            setWishlistError(null);
+            await api.patch(`/shared/baby-wishlist/${id}`);
+            await fetchWishlist();
+        } catch {
+            setWishlist(previousWishlist);
+            setWishlistError(t('wishlistSaveError'));
+        }
+    };
+
+    const deleteWishlistItem = async (id: string) => {
+        const previousWishlist = wishlist;
+        setWishlist(prev => prev.filter(item => item.id !== id));
+
+        try {
+            setWishlistError(null);
+            await api.delete(`/shared/baby-wishlist/${id}`);
+        } catch {
+            setWishlist(previousWishlist);
+            setWishlistError(t('wishlistDeleteError'));
+        }
+    };
+
+    const handleMemoryImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setMemoryCompressing(true);
+            setMemoryError(null);
+            const compressed = await compressMemoryImage(file);
+            setMemoryImageData(compressed.imageData);
+            setMemoryImageMimeType(compressed.imageMimeType);
+            setMemoryImageName(file.name);
+            setRemoveCurrentMemoryImage(false);
+        } catch {
+            setMemoryError(t('memoryImageError'));
+        } finally {
+            setMemoryCompressing(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleSaveMemory = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!memoryTitle.trim() && !memoryCaption.trim() && !memoryImageData && !editingMemoryId) return;
+        if (!memoryTitle.trim() && !memoryCaption.trim() && !memoryImageData && editingMemoryId && !removeCurrentMemoryImage) return;
+
+        try {
+            setMemorySaving(true);
+            setMemoryError(null);
+            const payload = {
+                title: memoryTitle.trim(),
+                caption: memoryCaption.trim(),
+                imageData: memoryImageData,
+                imageMimeType: memoryImageMimeType,
+                removeImage: removeCurrentMemoryImage,
+            };
+
+            if (editingMemoryId) {
+                await api.patch(`/shared/memories/${editingMemoryId}`, payload);
+                await fetchMemories();
+            } else {
+                const data = await api.post<MemoriesResponse>('/shared/memories', payload);
+                setMemories(data.memories || []);
+            }
+            resetMemoryForm();
+        } catch {
+            setMemoryError(t('memorySaveError'));
+        } finally {
+            setMemorySaving(false);
+        }
+    };
+
+    const editMemory = (memory: MemoryItem) => {
+        setEditingMemoryId(memory.id);
+        setMemoryTitle(memory.title);
+        setMemoryCaption(memory.caption);
+        setMemoryImageData(null);
+        setMemoryImageMimeType(null);
+        setMemoryImageName('');
+        setRemoveCurrentMemoryImage(false);
+    };
+
+    const deleteMemory = async (id: string) => {
+        const previousMemories = memories;
+        setMemories(prev => prev.filter(memory => memory.id !== id));
+
+        try {
+            setMemoryError(null);
+            await api.delete(`/shared/memories/${id}`);
+            if (editingMemoryId === id) resetMemoryForm();
+        } catch {
+            setMemories(previousMemories);
+            setMemoryError(t('memoryDeleteError'));
+        }
+    };
+
+    const deleteNote = async (id: string) => {
+        const previousNotes = notes;
+        setDeletingNoteId(id);
+        setNotes(prev => prev.filter(note => note.id !== id));
+
+        try {
+            setNotesError(null);
+            await api.delete(`/notes/${id}`);
+        } catch {
+            setNotes(previousNotes);
+            setNotesError('Could not delete this shared note. Please try again.');
+        } finally {
+            setDeletingNoteId(null);
+        }
+    };
+
     return (
         <AuthenticatedShell>
             <div className="max-w-6xl mx-auto space-y-6">
-                {/* Header */}
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-display font-bold text-velvet-900 dark:text-surface-100">
-                        {t('title')}
-                    </h1>
-                    <p className="text-surface-500 dark:text-surface-400 mt-1">
-                        {t('sharedSubtitle')}
-                    </p>
-                </div>
-
-                {/* Error Banner */}
-                {error && (
-                    <Card className="border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-900/20">
-                        <div className="flex items-center gap-3">
-                            <AlertCircle className="w-5 h-5 text-danger-600 dark:text-danger-400 flex-shrink-0" />
-                            <div className="flex-1">
-                                <p className="text-sm font-medium text-danger-700 dark:text-danger-300">{t('errorLoading')}</p>
-                                <p className="text-xs text-danger-600 dark:text-danger-400 mt-0.5">{error}</p>
+                <Card className="overflow-hidden bg-gradient-to-br from-primary-50 via-white to-razzmatazz-50 dark:from-primary-900/20 dark:via-velvet-900 dark:to-razzmatazz-900/20 border-primary-100 dark:border-primary-800">
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-6 justify-between">
+                        <div className="max-w-2xl">
+                            <Badge variant="razzmatazz" className="mb-3">{t('familyHub')}</Badge>
+                            <h1 className="text-3xl lg:text-4xl font-display font-bold text-velvet-900 dark:text-surface-100">
+                                {t('title')}
+                            </h1>
+                            <p className="text-surface-600 dark:text-surface-300 mt-3 leading-relaxed">
+                                {t('subtitle')}
+                            </p>
+                        </div>
+                        <div className="w-full lg:w-72 rounded-3xl bg-white/80 dark:bg-velvet-900/70 border border-white dark:border-velvet-700 p-5 shadow-soft">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 rounded-2xl bg-razzmatazz-100 dark:bg-razzmatazz-900/40 flex items-center justify-center">
+                                    <Trophy className="w-6 h-6 text-razzmatazz-600 dark:text-razzmatazz-300" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-surface-500 dark:text-surface-400">{t('overallProgress')}</p>
+                                    <p className="text-2xl font-display font-bold text-velvet-900 dark:text-surface-100">{overallProgress}%</p>
+                                </div>
                             </div>
-                            <button
-                                onClick={fetchData}
-                                className="text-sm text-danger-600 dark:text-danger-400 hover:text-danger-700 dark:hover:text-danger-300 font-medium underline flex-shrink-0"
-                            >
-                                {t('retry')}
-                            </button>
+                            <ProgressBar value={overallProgress} max={100} variant="accent" showLabel size="md" />
+                        </div>
+                    </div>
+                </Card>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Card padding="sm" className="bg-white dark:bg-velvet-900">
+                        <div className="flex items-center gap-3">
+                            <Baby className="w-8 h-8 text-primary-500" />
+                            <div>
+                                <p className="text-2xl font-bold text-velvet-900 dark:text-surface-100">{likedNames}</p>
+                                <p className="text-xs text-surface-500 dark:text-surface-400">{t('favoriteNames')}</p>
+                            </div>
                         </div>
                     </Card>
-                )}
-
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {quickStats.map((stat, i) => (
-                        <Card key={i} padding="sm" className="text-center">
-                            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                            <p className="text-xs text-surface-500 mt-1">{t(stat.labelKey as any)}</p>
-                            <p className="text-xs text-surface-400 mt-0.5">{stat.change}</p>
-                        </Card>
-                    ))}
-                </div>
-
-                {/* Module Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {modules.map((mod, i) => (
-                        <Link
-                            key={i}
-                            href={mod.href}
-                            className={`
-                block p-5 rounded-2xl border transition-all duration-200 no-underline
-                hover:shadow-soft hover:-translate-y-0.5 ${mod.bg} ${mod.border}
-              `}
-                        >
-                            <mod.icon className={`w-7 h-7 mb-3 ${mod.color}`} />
-                            <h3 className="font-semibold text-velvet-900 dark:text-surface-100">
-                                {t(mod.labelKey as any)}
-                            </h3>
-                            <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">
-                                {t(mod.descKey as any)}
-                            </p>
-                        </Link>
-                    ))}
-                </div>
-
-                {/* Updates & Milestones Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Recent Updates */}
-                    <Card className="lg:col-span-2" padding="none">
-                        <div className="p-5 border-b border-surface-200 dark:border-velvet-700">
-                            <h2 className="text-lg font-display font-bold text-velvet-900 dark:text-surface-100">
-                                {t('recentActivity')}
-                            </h2>
+                    <Card padding="sm" className="bg-white dark:bg-velvet-900">
+                        <div className="flex items-center gap-3">
+                            <Gift className="w-8 h-8 text-gold-500" />
+                            <div>
+                                <p className="text-2xl font-bold text-velvet-900 dark:text-surface-100">{completedWishlist}/{wishlist.length}</p>
+                                <p className="text-xs text-surface-500 dark:text-surface-400">{t('wishlistReady')}</p>
+                            </div>
                         </div>
-                        <div className="p-5 space-y-3">
-                            {recentUpdates.length === 0 ? (
-                                <p className="text-sm text-surface-400 dark:text-surface-500 text-center py-8">
-                                    {t('noRecentActivity')}
-                                </p>
+                    </Card>
+                    <Card padding="sm" className="bg-white dark:bg-velvet-900">
+                        <div className="flex items-center gap-3">
+                            <Camera className="w-8 h-8 text-razzmatazz-500" />
+                            <div>
+                                <p className="text-2xl font-bold text-velvet-900 dark:text-surface-100">{memories.length}</p>
+                                <p className="text-xs text-surface-500 dark:text-surface-400">{t('memoriesSaved')}</p>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+
+                <Card>
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                        <div>
+                            <h2 className="text-xl font-display font-bold text-velvet-900 dark:text-surface-100 flex items-center gap-2">
+                                <ImagePlus className="w-5 h-5 text-razzmatazz-500" />
+                                {t('memoryWall')}
+                            </h2>
+                            <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{t('memoryWallDesc')}</p>
+                        </div>
+                        <Badge variant="razzmatazz">{memoryProgress}%</Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5">
+                        <form onSubmit={handleSaveMemory} className="rounded-2xl border border-dashed border-razzmatazz-300 dark:border-razzmatazz-700 bg-razzmatazz-50/60 dark:bg-razzmatazz-900/10 p-4">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <p className="text-sm font-semibold text-velvet-900 dark:text-surface-100">{editingMemoryId ? t('updateMemory') : t('addMemory')}</p>
+                                {editingMemoryId && (
+                                    <button type="button" onClick={resetMemoryForm} className="text-xs text-surface-500 hover:text-danger-500 flex items-center gap-1">
+                                        <X className="w-3 h-3" />
+                                        {t('cancelEdit')}
+                                    </button>
+                                )}
+                            </div>
+                            <input
+                                value={memoryTitle}
+                                onChange={(event) => setMemoryTitle(event.target.value)}
+                                placeholder={t('memoryTitlePlaceholder')}
+                                className="w-full rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 px-3 py-2 text-sm text-velvet-900 dark:text-surface-100 mb-3"
+                            />
+                            <textarea
+                                value={memoryCaption}
+                                onChange={(event) => setMemoryCaption(event.target.value)}
+                                placeholder={t('memoryCaptionPlaceholder')}
+                                className="w-full rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 px-3 py-2 text-sm text-velvet-900 dark:text-surface-100 mb-3 min-h-[96px] resize-none"
+                            />
+                            <label className="btn-secondary w-full justify-center cursor-pointer flex items-center gap-2 mb-3">
+                                {memoryCompressing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                                {memoryCompressing ? t('compressingImage') : t('chooseMemoryImage')}
+                                <input type="file" accept="image/*" className="hidden" onChange={handleMemoryImageChange} disabled={memoryCompressing || memorySaving} />
+                            </label>
+                            {memoryImageName && <p className="text-xs text-success-600 dark:text-success-400 mb-3">{t('imageReady', { name: memoryImageName })}</p>}
+                            {editingMemoryId && memories.find(memory => memory.id === editingMemoryId)?.imageData && !removeCurrentMemoryImage && (
+                                <button type="button" onClick={() => setRemoveCurrentMemoryImage(true)} className="text-xs text-danger-500 hover:text-danger-600 mb-3">
+                                    {t('removeCurrentImage')}
+                                </button>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={memorySaving || memoryCompressing || (!memoryTitle.trim() && !memoryCaption.trim() && !memoryImageData && !editingMemoryId)}
+                                className="btn-primary w-full justify-center flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                {memorySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                {editingMemoryId ? t('saveMemoryUpdate') : t('saveMemory')}
+                            </button>
+                            <p className="text-xs text-surface-500 dark:text-surface-400 mt-3">{t('uploadHint')}</p>
+                        </form>
+
+                        <div>
+                            {memoryError && <p className="text-sm text-danger-600 dark:text-danger-400 mb-3">{memoryError}</p>}
+                            {memoriesLoading ? (
+                                <div className="flex items-center justify-center py-12 text-surface-500 dark:text-surface-400">
+                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                    {t('loadingMemories')}
+                                </div>
+                            ) : memories.length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-surface-300 dark:border-velvet-700 p-8 text-center">
+                                    <ImagePlus className="w-9 h-9 text-razzmatazz-400 mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-velvet-900 dark:text-surface-100">{t('emptyMemoriesTitle')}</p>
+                                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">{t('emptyMemoriesDesc')}</p>
+                                </div>
                             ) : (
-                                recentUpdates.map((update) => (
-                                    <UpdateCard key={update.id} update={update} t={t} />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {memories.map(memory => (
+                                        <div key={memory.id} className="rounded-2xl overflow-hidden border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-800/60">
+                                            {memory.imageData ? (
+                                                <img src={memory.imageData} alt="" className="h-40 w-full object-cover" />
+                                            ) : (
+                                                <div className="h-32 w-full bg-razzmatazz-50 dark:bg-razzmatazz-900/20 flex items-center justify-center">
+                                                    <ImagePlus className="w-8 h-8 text-razzmatazz-300" />
+                                                </div>
+                                            )}
+                                            <div className="p-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold text-velvet-900 dark:text-surface-100">{memory.title}</p>
+                                                        {memory.caption && <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">{memory.caption}</p>}
+                                                        <p className="text-[11px] text-surface-400 dark:text-surface-500 mt-2">{t('addedBy', { name: `${memory.createdBy.firstName} ${memory.createdBy.lastName}` })}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button type="button" onClick={() => editMemory(memory)} className="text-surface-400 hover:text-primary-500" aria-label={t('editMemory')}>
+                                                            <Edit3 className="w-4 h-4" />
+                                                        </button>
+                                                        <button type="button" onClick={() => deleteMemory(memory.id)} className="text-surface-400 hover:text-danger-500" aria-label={t('removeMemory')}>
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                        <div>
+                            <h2 className="text-xl font-display font-bold text-velvet-900 dark:text-surface-100 flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-primary-500" />
+                                Shared Notes
+                            </h2>
+                            <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">Notes shared from the mother dashboard now live in this shared space.</p>
+                        </div>
+                        <Badge variant="primary">{notes.length}</Badge>
+                    </div>
+
+                    {notesError && <p className="text-sm text-danger-600 dark:text-danger-400 mb-3">{notesError}</p>}
+
+                    {notesLoading ? (
+                        <div className="flex items-center justify-center py-10 text-surface-500 dark:text-surface-400">
+                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                            Loading shared notes...
+                        </div>
+                    ) : notes.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-surface-300 dark:border-velvet-700 p-8 text-center">
+                            <MessageSquare className="w-9 h-9 text-primary-400 mx-auto mb-3" />
+                            <p className="text-sm font-medium text-velvet-900 dark:text-surface-100">No shared notes yet</p>
+                            <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">When a private mother-dashboard note is shared, it will appear here for both profiles.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {notes.map(note => (
+                                <div key={note.id} className="rounded-2xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-800/60 p-4">
+                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                        <div className="min-w-0">
+                                            <Badge variant={note.visibility === 'partner' ? 'razzmatazz' : 'primary'} className="mb-2">
+                                                {note.visibility === 'partner' ? 'Partner visible' : 'Shared'}
+                                            </Badge>
+                                            <h3 className="font-semibold text-velvet-900 dark:text-surface-100 break-words">{note.title}</h3>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => deleteNote(note.id)}
+                                            disabled={deletingNoteId === note.id}
+                                            className="text-surface-400 hover:text-danger-500 disabled:opacity-60"
+                                            aria-label="Delete shared note"
+                                        >
+                                            {deletingNoteId === note.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                    {note.body && <p className="text-sm text-surface-600 dark:text-surface-300 whitespace-pre-wrap break-words">{note.body}</p>}
+                                    <p className="text-[11px] text-surface-400 dark:text-surface-500 mt-3">
+                                        {t('addedBy', { name: `${note.createdBy.firstName} ${note.createdBy.lastName}` })}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                        <div className="flex items-start justify-between gap-4 mb-5">
+                            <div>
+                                <h2 className="text-xl font-display font-bold text-velvet-900 dark:text-surface-100 flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-primary-500" />
+                                    {t('babyNamePicker')}
+                                </h2>
+                                <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{t('babyNamePickerDesc')}</p>
+                            </div>
+                            <Badge variant="primary">{t('topPick')}: {topName?.name || t('noNamesYet')}</Badge>
+                        </div>
+
+                        <form onSubmit={handleAddName} className="rounded-2xl border border-primary-100 dark:border-primary-800 bg-primary-50/60 dark:bg-primary-900/10 p-4 mb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <input
+                                    value={newName}
+                                    onChange={(event) => setNewName(event.target.value)}
+                                    placeholder={t('namePlaceholder')}
+                                    className="w-full rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 px-3 py-2 text-sm text-velvet-900 dark:text-surface-100"
+                                />
+                                <input
+                                    value={newMeaning}
+                                    onChange={(event) => setNewMeaning(event.target.value)}
+                                    placeholder={t('meaningPlaceholder')}
+                                    className="w-full rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 px-3 py-2 text-sm text-velvet-900 dark:text-surface-100"
+                                />
+                            </div>
+                            <button type="submit" disabled={namesSaving || !newName.trim()} className="btn-primary btn-sm mt-3 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                                {namesSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                {t('addName')}
+                            </button>
+                        </form>
+
+                        {namesError && <p className="text-sm text-danger-600 dark:text-danger-400 mb-3">{namesError}</p>}
+
+                        <div className="space-y-3">
+                            {namesLoading ? (
+                                <div className="flex items-center justify-center py-10 text-surface-500 dark:text-surface-400">
+                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                    {t('loadingNames')}
+                                </div>
+                            ) : names.length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-surface-300 dark:border-velvet-700 p-6 text-center">
+                                    <Baby className="w-8 h-8 text-primary-400 mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-velvet-900 dark:text-surface-100">{t('emptyNamesTitle')}</p>
+                                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">{t('emptyNamesDesc')}</p>
+                                </div>
+                            ) : (
+                                names.map(name => (
+                                    <div
+                                        key={name.id}
+                                        className="p-4 rounded-2xl border border-surface-200 dark:border-velvet-700 bg-surface-50 dark:bg-velvet-800/60"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <button type="button" onClick={() => toggleName(name.id)} className="flex-1 text-left">
+                                                <p className="font-semibold text-velvet-900 dark:text-surface-100">{name.name}</p>
+                                                <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">{name.meaning || t('noMeaningAdded')}</p>
+                                                <p className="text-[11px] text-surface-400 dark:text-surface-500 mt-2">{t('addedBy', { name: `${name.createdBy.firstName} ${name.createdBy.lastName}` })}</p>
+                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button type="button" onClick={() => toggleName(name.id)} className="flex items-center gap-1 text-sm text-surface-500 dark:text-surface-400 hover:text-razzmatazz-500">
+                                                    <Heart className={`w-5 h-5 ${name.liked ? 'fill-razzmatazz-500 text-razzmatazz-500' : 'text-surface-400'}`} />
+                                                    {name.votes}
+                                                </button>
+                                                <button type="button" onClick={() => deleteName(name.id)} className="text-surface-400 hover:text-danger-500" aria-label={t('deleteName')}>
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 ))
                             )}
                         </div>
+                        <p className="text-xs text-surface-400 dark:text-surface-500 mt-4">{t('nameVotesNote', { votes: totalVotes })}</p>
                     </Card>
 
-                    {/* Upcoming Milestones */}
                     <Card>
-                        <h2 className="text-lg font-display font-bold text-velvet-900 dark:text-surface-100 mb-4 flex items-center gap-2">
-                            <Star className="w-5 h-5 text-gold-500" />
-                            {t('upcomingMilestones')}
-                        </h2>
-                        <div className="space-y-4">
-                            {milestones.length === 0 ? (
-                                <p className="text-sm text-surface-400 dark:text-surface-500 text-center py-4">
-                                    {t('noMilestones')}
-                                </p>
+                        <div className="flex items-start justify-between gap-4 mb-5">
+                            <div>
+                                <h2 className="text-xl font-display font-bold text-velvet-900 dark:text-surface-100 flex items-center gap-2">
+                                    <Gift className="w-5 h-5 text-gold-500" />
+                                    {t('babyWishlist')}
+                                </h2>
+                                <p className="text-sm text-surface-500 dark:text-surface-400 mt-1">{t('babyWishlistDesc')}</p>
+                            </div>
+                            <Badge variant="gold">{wishlistProgress}%</Badge>
+                        </div>
+
+                        <div className="mb-5">
+                            <ProgressBar value={completedWishlist} max={Math.max(wishlist.length, 1)} variant="gold" showLabel size="md" />
+                        </div>
+
+                        <form onSubmit={handleAddWishlistItem} className="rounded-2xl border border-gold-100 dark:border-gold-800 bg-gold-50/60 dark:bg-gold-900/10 p-4 mb-4">
+                            <input
+                                value={newWishlistTitle}
+                                onChange={(event) => setNewWishlistTitle(event.target.value)}
+                                placeholder={t('wishlistItemPlaceholder')}
+                                className="w-full rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 px-3 py-2 text-sm text-velvet-900 dark:text-surface-100 mb-3"
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <input
+                                    value={newWishlistCategory}
+                                    onChange={(event) => setNewWishlistCategory(event.target.value)}
+                                    placeholder={t('wishlistCategoryPlaceholder')}
+                                    className="w-full rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 px-3 py-2 text-sm text-velvet-900 dark:text-surface-100"
+                                />
+                                <select
+                                    value={newWishlistPriority}
+                                    onChange={(event) => setNewWishlistPriority(event.target.value as 'high' | 'medium' | 'low')}
+                                    className="w-full rounded-xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-900 px-3 py-2 text-sm text-velvet-900 dark:text-surface-100"
+                                >
+                                    <option value="high">{t('priorityHigh')}</option>
+                                    <option value="medium">{t('priorityMedium')}</option>
+                                    <option value="low">{t('priorityLow')}</option>
+                                </select>
+                            </div>
+                            <button type="submit" disabled={wishlistSaving || !newWishlistTitle.trim()} className="btn-primary btn-sm mt-3 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                                {wishlistSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                {t('addWishlistItem')}
+                            </button>
+                        </form>
+
+                        {wishlistError && <p className="text-sm text-danger-600 dark:text-danger-400 mb-3">{wishlistError}</p>}
+
+                        <div className="space-y-3">
+                            {wishlistLoading ? (
+                                <div className="flex items-center justify-center py-10 text-surface-500 dark:text-surface-400">
+                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                    {t('loadingWishlist')}
+                                </div>
+                            ) : wishlist.length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-surface-300 dark:border-velvet-700 p-6 text-center">
+                                    <Gift className="w-8 h-8 text-gold-400 mx-auto mb-3" />
+                                    <p className="text-sm font-medium text-velvet-900 dark:text-surface-100">{t('emptyWishlistTitle')}</p>
+                                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">{t('emptyWishlistDesc')}</p>
+                                </div>
                             ) : (
-                                milestones.map((milestone, i) => (
-                                    <div key={i} className="flex items-start gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center flex-shrink-0">
-                                            <milestone.icon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="primary">{t('weekPrefix', { week: milestone.week })}</Badge>
-                                            </div>
-                                            <h4 className="font-semibold text-sm text-velvet-900 dark:text-surface-100 mt-1">
-                                                {milestone.title}
-                                            </h4>
-                                            <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5">
-                                                {milestone.description}
-                                            </p>
-                                        </div>
+                                wishlist.map(item => (
+                                    <div
+                                        key={item.id}
+                                        className="flex items-center gap-3 p-3 rounded-2xl border border-surface-200 dark:border-velvet-700 bg-white dark:bg-velvet-800/60 hover:border-gold-300 dark:hover:border-gold-600 transition-colors"
+                                    >
+                                        <button type="button" onClick={() => toggleWishlist(item.id)} className={`w-9 h-9 rounded-full flex items-center justify-center border ${item.done ? 'bg-success-100 border-success-200 text-success-600' : 'bg-surface-50 border-surface-200 text-surface-400'}`}>
+                                            {item.done ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                                        </button>
+                                        <button type="button" onClick={() => toggleWishlist(item.id)} className="flex-1 min-w-0 text-left">
+                                            <span className={`block text-sm font-medium ${item.done ? 'line-through text-surface-400' : 'text-velvet-900 dark:text-surface-100'}`}>
+                                                {item.title}
+                                            </span>
+                                            <span className="text-xs text-surface-500 dark:text-surface-400">
+                                                {item.category || t('uncategorizedWishlist')} · {t(`priority${item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}` as any)}
+                                            </span>
+                                            <span className="block text-[11px] text-surface-400 dark:text-surface-500 mt-1">{t('addedBy', { name: `${item.createdBy.firstName} ${item.createdBy.lastName}` })}</span>
+                                        </button>
+                                        <button type="button" onClick={() => deleteWishlistItem(item.id)} className="text-surface-400 hover:text-danger-500" aria-label={t('deleteWishlistItem')}>
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 ))
                             )}
                         </div>
                     </Card>
                 </div>
-
-                {/* Engagement Banner */}
-                <Card className="bg-gradient-to-r from-razzmatazz-50 to-primary-50 dark:from-razzmatazz-900/20 dark:to-primary-900/20 border-razzmatazz-200 dark:border-razzmatazz-800">
-                    <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-razzmatazz-100 dark:bg-razzmatazz-800 flex items-center justify-center">
-                                <Heart className="w-5 h-5 text-razzmatazz-600" />
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-velvet-900 dark:text-surface-100">
-                                    {t('stayConnected')}
-                                </h3>
-                                <p className="text-sm text-surface-500 dark:text-surface-400">
-                                    {t('stayConnectedDesc')}
-                                </p>
-                            </div>
-                        </div>
-                        <Link href={dashboardUrl} className="btn-primary btn-sm flex items-center gap-2 whitespace-nowrap">
-                            {t('goToDashboard')}
-                            <ArrowRight className="w-4 h-4" />
-                        </Link>
-                    </div>
-                </Card>
             </div>
         </AuthenticatedShell>
     );

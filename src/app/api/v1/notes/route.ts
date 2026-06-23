@@ -24,12 +24,24 @@ export async function GET(req: NextRequest) {
 
         const url = new URL(req.url);
         const visibility = url.searchParams.get('visibility');
+        const mineOnly = url.searchParams.get('mine') === '1';
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '30');
 
         const where: any = { familyId };
+        if (mineOnly) {
+            where.createdByUserId = payload.userId;
+        }
         if (visibility) {
             where.visibilitySetting = { visibilityName: visibility };
+            if (visibility === 'private') {
+                where.createdByUserId = payload.userId;
+            }
+        } else {
+            where.OR = [
+                { visibilitySetting: { visibilityName: { not: 'private' } } },
+                { createdByUserId: payload.userId },
+            ];
         }
 
         const [notes, total] = await Promise.all([

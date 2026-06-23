@@ -102,216 +102,221 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="min-h-screen bg-surface-50 mandala-pattern-dots">
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-surface-200">
-                <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-                    <Link href="/home" className="no-underline shrink-0">
-                        <span className="font-semibold text-[#a86b81] text-xl">MaternalCare</span>
-                    </Link>
-                    <nav className="hidden md:flex items-center gap-1">
-                        <Link href="/home" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
-                            {n('home')}
+        <div className="min-h-screen relative bg-[#F7EDFF]">
+            {/* Background image overlay at 30% opacity */}
+            <div
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 pointer-events-none"
+                style={{ backgroundImage: "url('/images/signup-bg.png')" }}
+            />
+            <div className="relative z-10">
+                {/* Header */}
+                <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-surface-200">
+                    <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
+                        <Link href="/home" className="no-underline shrink-0">
+                            <span className="font-semibold text-[#9511F4] text-xl">MaternalCare</span>
                         </Link>
-                        <Link href="/about" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
-                            {n('about')}
-                        </Link>
-                        <Link href="/faq" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
-                            {n('faq')}
-                        </Link>
-                        <Link href="/facts-and-myths" className="px-3 py-1.5 text-sm text-surface-600 hover:text-[#a86b81] rounded-lg hover:bg-surface-50 transition-colors no-underline">
-                            {n('factsAndMyths')}
-                        </Link>
-                    </nav>
-                    <div className="flex items-center gap-2">
-                        <LanguageButton />
-                        <div className="flex items-center gap-1 md:hidden">
-                            <Link href="/home" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+                        <nav className="hidden md:flex items-center gap-1">
+                            <Link href="/home" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
                                 {n('home')}
                             </Link>
-                            <Link href="/about" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+                            <Link href="/about" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
                                 {n('about')}
                             </Link>
-                            <Link href="/faq" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+                            <Link href="/faq" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
                                 {n('faq')}
                             </Link>
-                            <Link href="/facts-and-myths" className="px-2 py-1 text-xs text-surface-500 hover:text-[#a86b81] no-underline">
+                            <Link href="/facts-and-myths" className="px-3 py-1.5 text-sm text-[#9511F4] hover:text-[#7a0ed4] rounded-lg hover:bg-surface-50 transition-colors no-underline">
                                 {n('factsAndMyths')}
                             </Link>
+                        </nav>
+                        <div className="flex items-center gap-2">
+                            <LanguageButton />
+                            <div className="flex items-center gap-1 md:hidden">
+                                <Link href="/home" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
+                                    {n('home')}
+                                </Link>
+                                <Link href="/about" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
+                                    {n('about')}
+                                </Link>
+                                <Link href="/faq" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
+                                    {n('faq')}
+                                </Link>
+                                <Link href="/facts-and-myths" className="px-2 py-1 text-xs text-[#9511F4] hover:text-[#7a0ed4] no-underline">
+                                    {n('factsAndMyths')}
+                                </Link>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </header>
+                </header>
 
-            <main className="flex items-center justify-center px-4 py-16">
-                <div className="w-full max-w-md">
-                    <Card className="p-8" variant="default">
-                        <div className="text-center mb-8">
-                            <h1 className="text-2xl font-display text-gradient-mandala mb-2">
-                                {t('title')}
-                            </h1>
-                            <p className="text-surface-500 text-sm">
-                                {t('subtitle')}
-                            </p>
-                        </div>
-
-                        {!selectedRole ? (
-                            <>
-                                <p className="text-sm text-surface-600 mb-4 font-medium">
-                                    {t('selectRole')}
+                <main className="flex items-center justify-start px-8 sm:px-24 lg:px-40 py-16">
+                    <div className="w-full max-w-md">
+                        <Card className="p-8" variant="default">
+                            <div className="text-center mb-8">
+                                <h1 className="text-2xl font-display mb-2" style={{ background: 'linear-gradient(96.55deg, #9511F4 4.98%, #D6006D 101.86%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                                    {t('title')}
+                                </h1>
+                                <p className="text-[#4A698F] text-sm">
+                                    {t('subtitle')}
                                 </p>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                                    {ROLE_OPTIONS.map((option) => (
-                                        <button
-                                            key={option.role}
-                                            type="button"
-                                            onClick={() => handleRoleSelect(option.role)}
-                                            className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-surface-200 bg-white hover:border-primary-300 hover:bg-primary-50/50 transition-all duration-200"
-                                        >
-                                            <span className="text-3xl">{option.icon}</span>
-                                            <span className="text-sm font-medium text-velvet-800">
-                                                {option.role === 'mother' ? t('roleMother') : option.role === 'partner' ? t('rolePartner') : (t('rolePostpartum') || 'Postpartum')}
-                                            </span>
-                                            <span className="text-xs text-surface-500">
-                                                {option.role === 'mother' ? t('roleMotherDesc') : option.role === 'partner' ? t('rolePartnerDesc') : (t('rolePostpartumDesc') || 'Already delivered')}
-                                            </span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
-                        ) : (
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                {error && (
-                                    <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-lg px-4 py-3">
-                                        {error}
+                            </div>
+
+                            {!selectedRole ? (
+                                <>
+                                    <p className="text-sm text-[#4A698F] mb-4 font-medium">
+                                        {t('selectRole')}
+                                    </p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                                        {ROLE_OPTIONS.map((option) => (
+                                            <button
+                                                key={option.role}
+                                                type="button"
+                                                onClick={() => handleRoleSelect(option.role)}
+                                                className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-surface-200 bg-white hover:border-[#9511F4]/30 hover:bg-[#9511F4]/5 transition-all duration-200"
+                                            >
+                                                <span className="text-3xl">{option.icon}</span>
+                                                <span className="text-sm font-medium text-[#9511F4]">
+                                                    {option.role === 'mother' ? t('roleMother') : option.role === 'partner' ? t('rolePartner') : (t('rolePostpartum') || 'Postpartum')}
+                                                </span>
+                                                <span className="text-xs text-surface-500">
+                                                    {option.role === 'mother' ? t('roleMotherDesc') : option.role === 'partner' ? t('rolePartnerDesc') : (t('rolePostpartumDesc') || 'Already delivered')}
+                                                </span>
+                                            </button>
+                                        ))}
                                     </div>
-                                )}
+                                </>
+                            ) : (
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    {error && (
+                                        <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-lg px-4 py-3">
+                                            {error}
+                                        </div>
+                                    )}
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input
-                                        label={t('firstName')}
-                                        value={firstName}
-                                        onChange={(e) => setFirstName(e.target.value)}
-                                        required
-                                    />
-                                    <Input
-                                        label={t('lastName')}
-                                        value={lastName}
-                                        onChange={(e) => setLastName(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                                <Input
-                                    label={t('email')}
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                                <Input
-                                    label={t('phone')}
-                                    type="tel"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                />
-                                <Input
-                                    label={t('dateOfBirth')}
-                                    type="date"
-                                    value={dateOfBirth}
-                                    onChange={(e) => setDateOfBirth(e.target.value)}
-                                />
-                                <div className="relative">
-                                    <Input
-                                        label={t('password')}
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                        helpText={t('passwordHint')}
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <Input
-                                        label={t('confirmPassword')}
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        required
-                                    />
-                                </div>
-
-                                {/* Partner code input — only shown when partner role is selected */}
-                                {selectedRole === 'partner' && (
-                                    <div>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <Input
-                                            label={t('partnerCode') || 'Partner Code'}
-                                            value={partnerCode}
-                                            onChange={(e) => setPartnerCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                            placeholder="Enter 6-digit partner code"
-                                            maxLength={6}
-                                            helpText={t('partnerCodeHelp') || 'Enter the code shared by the mother to link your accounts'}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Delivery date input — only shown when postpartum role is selected */}
-                                {selectedRole === 'postpartum' && (
-                                    <div>
-                                        <Input
-                                            label={t('deliveryDate') || 'Delivery Date'}
-                                            type="date"
-                                            value={deliveryDate}
-                                            onChange={(e) => setDeliveryDate(e.target.value)}
+                                            label={t('firstName')}
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
                                             required
-                                            helpText={t('deliveryDateHelp') || 'When was your baby born?'}
+                                        />
+                                        <Input
+                                            label={t('lastName')}
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            required
                                         />
                                     </div>
-                                )}
-
-                                <label className="flex items-center gap-2 cursor-pointer text-sm text-surface-600">
-                                    <input
-                                        type="checkbox"
-                                        checked={showPassword}
-                                        onChange={(e) => setShowPassword(e.target.checked)}
-                                        className="rounded"
+                                    <Input
+                                        label={t('email')}
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
                                     />
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                    Show password
-                                </label>
+                                    <Input
+                                        label={t('phone')}
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                    />
+                                    <Input
+                                        label={t('dateOfBirth')}
+                                        type="date"
+                                        value={dateOfBirth}
+                                        onChange={(e) => setDateOfBirth(e.target.value)}
+                                    />
+                                    <div className="relative">
+                                        <Input
+                                            label={t('password')}
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            required
+                                            helpText={t('passwordHint')}
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <Input
+                                            label={t('confirmPassword')}
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            required
+                                        />
+                                    </div>
 
-                                <Button
-                                    type="submit"
-                                    variant="primary"
-                                    className="w-full"
-                                    size="lg"
-                                    loading={isLoading}
-                                >
-                                    {t('createAccount')}
-                                </Button>
+                                    {/* Partner code input — only shown when partner role is selected */}
+                                    {selectedRole === 'partner' && (
+                                        <div>
+                                            <Input
+                                                label={t('partnerCode') || 'Partner Code'}
+                                                value={partnerCode}
+                                                onChange={(e) => setPartnerCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                placeholder="Enter 6-digit partner code"
+                                                maxLength={6}
+                                                helpText={t('partnerCodeHelp') || 'Enter the code shared by the mother to link your accounts'}
+                                            />
+                                        </div>
+                                    )}
 
-                                <button
-                                    type="button"
-                                    onClick={handleBack}
-                                    className="w-full text-center text-sm text-surface-500 hover:text-primary-600 transition-colors"
-                                >
-                                    {c('back')}
-                                </button>
-                            </form>
-                        )}
+                                    {/* Delivery date input — only shown when postpartum role is selected */}
+                                    {selectedRole === 'postpartum' && (
+                                        <div>
+                                            <Input
+                                                label={t('deliveryDate') || 'Delivery Date'}
+                                                type="date"
+                                                value={deliveryDate}
+                                                onChange={(e) => setDeliveryDate(e.target.value)}
+                                                required
+                                                helpText={t('deliveryDateHelp') || 'When was your baby born?'}
+                                            />
+                                        </div>
+                                    )}
 
-                        <p className="mt-6 text-center text-sm text-surface-500">
-                            {t('haveAccount')}{' '}
-                            <Link href="/login" className="text-primary-600 hover:text-primary-700 no-underline font-medium">
-                                {t('signIn')}
-                            </Link>
-                        </p>
-                    </Card>
-                </div>
-            </main>
+                                    <label className="flex items-center gap-2 cursor-pointer text-sm text-surface-600">
+                                        <input
+                                            type="checkbox"
+                                            checked={showPassword}
+                                            onChange={(e) => setShowPassword(e.target.checked)}
+                                            className="rounded"
+                                        />
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        Show password
+                                    </label>
 
-            <footer className="border-t border-surface-200 py-8 relative z-10">
-                <p className="text-center text-xs text-surface-400">{c('disclaimer')}</p>
-            </footer>
+                                    <Button
+                                        type="submit"
+                                        variant="primary"
+                                        className="w-full"
+                                        size="lg"
+                                        loading={isLoading}
+                                    >
+                                        {t('createAccount')}
+                                    </Button>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleBack}
+                                        className="w-full text-center text-sm text-surface-500 hover:text-[#9511F4] transition-colors"
+                                    >
+                                        {c('back')}
+                                    </button>
+                                </form>
+                            )}
+
+                            <p className="mt-6 text-center text-sm text-surface-500">
+                                {t('haveAccount')}{' '}
+                                <Link href="/login" className="text-[#9511F4] hover:text-[#7a0ed4] no-underline font-medium">
+                                    {t('signIn')}
+                                </Link>
+                            </p>
+                        </Card>
+                    </div>
+                </main>
+
+
+            </div>{/* close relative z-10 wrapper */}
         </div>
     );
 }

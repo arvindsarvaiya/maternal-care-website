@@ -263,6 +263,7 @@ function getDayName(dayIndex: number, t: ReturnType<typeof import('next-intl').u
 export default function PartnerDashboard() {
     const { user, isPostpartum } = useAuth();
     const t = useTranslations('partner');
+    const sharedT = useTranslations('shared');
     const locale = useLocale();
     const currentUserId = user?.id || '';
 
@@ -578,6 +579,24 @@ export default function PartnerDashboard() {
                         </button>
                     </div>
                 )}
+
+                <Card className="bg-gradient-to-r from-razzmatazz-50 to-primary-50 dark:from-razzmatazz-900/20 dark:to-primary-900/20 border-razzmatazz-200 dark:border-razzmatazz-800">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-white dark:bg-velvet-900 flex items-center justify-center shadow-soft">
+                                <Baby className="w-5 h-5 text-razzmatazz-500" />
+                            </div>
+                            <div>
+                                <h3 className="font-display text-lg text-surface-800 dark:text-surface-200">{sharedT('profileCardTitle')}</h3>
+                                <p className="text-sm text-surface-500 dark:text-surface-400">{sharedT('profileCardDesc')}</p>
+                            </div>
+                        </div>
+                        <Link href="/shared" className="btn-primary btn-sm flex items-center gap-2 whitespace-nowrap">
+                            {sharedT('openSharedSpace')}
+                            <ChevronRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+                </Card>
 
                 {/* Streak & Motivation Banner */}
                 <div className="bg-gradient-to-r from-primary-100 to-primary-50 dark:from-primary-900/30 dark:to-primary-800/20 border border-primary-200 dark:border-primary-700 rounded-xl p-6">

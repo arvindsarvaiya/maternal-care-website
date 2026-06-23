@@ -68,6 +68,7 @@ function getCategoryIcon(type: string): string {
         case 'medication': return '💊';
         case 'weekly_update': return '📖';
         case 'partner_activity': return '💑';
+        case 'personalized_tip': return '💝';
         case 'rule_triggered': return '⚠️';
         case 'system': return '⚙️';
         default: return '🔔';
@@ -194,6 +195,39 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const seenIds = useRef<Set<string>>(new Set());
     const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // ── Persist seen IDs in localStorage to survive page refreshes ──
+    const STORAGE_KEY = 'maternal-seen-notifications';
+
+    const loadSeenIds = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                const parsed: string[] = JSON.parse(stored);
+                seenIds.current = new Set(parsed);
+            }
+        } catch { /* ignore */ }
+    }, []);
+
+    const persistSeenId = useCallback((id: string) => {
+        if (typeof window === 'undefined') return;
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            const ids: string[] = stored ? JSON.parse(stored) : [];
+            if (!ids.includes(id)) {
+                ids.push(id);
+                // Keep only last 200 IDs to prevent unbounded growth
+                const trimmed = ids.slice(-200);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+            }
+        } catch { /* ignore */ }
+    }, []);
+
+    // Load seen IDs on mount
+    useEffect(() => {
+        loadSeenIds();
+    }, [loadSeenIds]);
+
     // ── Browser Notification Permission ──
 
     const requestBrowserPermission = useCallback(async () => {
@@ -290,6 +324,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             for (const apiNotif of notifications) {
                 if (!seenIds.current.has(apiNotif.id)) {
                     seenIds.current.add(apiNotif.id);
+                    persistSeenId(apiNotif.id);
                     const popup = mapPopup(apiNotif);
                     newPopups.push(popup);
                 }

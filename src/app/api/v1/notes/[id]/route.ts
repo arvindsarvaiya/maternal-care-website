@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { getAuthPayload, success, badRequest, notFound, unauthorized } from '@/lib/api-utils';
 import { stripHtml } from '@/lib/sanitize';
 import { logger } from '@/lib/logger';
+import { notifySharedSpaceUpdate } from '@/lib/shared-space-notifications';
 
 // ─── PUT: Update shared note ───
 const updateNoteSchema = z.object({
@@ -25,11 +26,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // Verify note exists and user has access
         const existing = await prisma.sharedNote.findUnique({
             where: { id },
-            include: { family: { include: { members: { where: { userId: payload.userId, inviteStatus: 'accepted' } } } } },
+            include: {
+                visibilitySetting: { select: { visibilityName: true } },
+                family: { include: { members: { where: { userId: payload.userId, inviteStatus: 'accepted' } } } },
+            },
         });
 
         if (!existing) return notFound('Note');
         if (existing.family.motherUserId !== payload.userId && existing.family.members.length === 0) {
+            return notFound('Note');
+        }
+        if (existing.visibilitySetting.visibilityName === 'private' && existing.createdByUserId !== payload.userId) {
             return notFound('Note');
         }
 
@@ -60,11 +67,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             },
         });
 
+        const previousVisibility = existing.visibilitySetting.visibilityName;
+        const nextVisibility = note.visibilitySetting.visibilityName;
+        if (previousVisibility === 'private' && nextVisibility !== 'private') {
+            await notifySharedSpaceUpdate({
+                familyId: existing.familyId,
+                actorUserId: payload.userId,
+                resourceType: 'note',
+                resourceId: note.id,
+                action: 'shared',
+                title: 'A private note was shared',
+                message: `${note.createdBy.firstName || 'Mother'} shared a note: ${note.title}`,
+            });
+        }
+
         return success({
             id: note.id,
             title: note.title,
             body: note.body,
-            visibility: note.visibilitySetting.visibilityName,
+            visibility: nextVisibility,
             createdBy: note.createdBy,
             createdAt: note.createdAt,
             updatedAt: note.updatedAt,
@@ -85,11 +106,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
         const existing = await prisma.sharedNote.findUnique({
             where: { id },
-            include: { family: { include: { members: { where: { userId: payload.userId, inviteStatus: 'accepted' } } } } },
+            include: {
+                visibilitySetting: { select: { visibilityName: true } },
+                family: { include: { members: { where: { userId: payload.userId, inviteStatus: 'accepted' } } } },
+            },
         });
 
         if (!existing) return notFound('Note');
         if (existing.family.motherUserId !== payload.userId && existing.family.members.length === 0) {
+            return notFound('Note');
+        }
+        if (existing.visibilitySetting.visibilityName === 'private' && existing.createdByUserId !== payload.userId) {
             return notFound('Note');
         }
 
