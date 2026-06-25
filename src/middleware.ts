@@ -48,10 +48,11 @@ function isProtected(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Allow static files and assets to pass through unchanged
+    // Allow static files, assets, and API routes to pass through unchanged
     if (
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||
+        pathname.startsWith('/api') ||
         pathname.includes('.')
     ) {
         return NextResponse.next();
