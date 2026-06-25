@@ -7,6 +7,9 @@ import { logger } from '@/lib/logger';
 import { rateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limit';
 import { stripHtml } from '@/lib/sanitize';
 
+// Prevent prerendering of API routes
+export const dynamic = 'force-dynamic';
+
 // ─── GET: Get chat history for a session ───
 export async function GET(req: NextRequest) {
     try {

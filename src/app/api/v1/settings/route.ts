@@ -4,6 +4,9 @@ import prisma from '@/lib/prisma';
 import { getAuthPayload, success, badRequest, notFound, unauthorized } from '@/lib/api-utils';
 import { logger } from '@/lib/logger';
 
+// Prevent prerendering of API routes
+export const dynamic = 'force-dynamic';
+
 // ─── GET: Fetch user preferences ───
 export async function GET(req: NextRequest) {
     try {

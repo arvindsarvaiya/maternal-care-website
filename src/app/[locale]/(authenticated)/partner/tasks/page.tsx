@@ -28,6 +28,9 @@ import {
     Heart,
 } from 'lucide-react';
 
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type TaskCategory = 'health' | 'nutrition' | 'preparation' | 'home' | 'logistics' | 'learning' | 'babycare' | 'recovery' | 'all';
