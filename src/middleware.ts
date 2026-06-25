@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken } from '@/lib/auth-verify';
 
+// Use Node.js runtime to bypass Edge Runtime 1MB size limit
+export const runtime = 'nodejs';
+
 // ─── Supported locales ───
 
 const locales = ['en', 'hi'];
