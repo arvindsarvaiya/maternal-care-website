@@ -1,8 +1,11 @@
-import createMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { routing } from '@/i18n/routing';
 import { verifyToken } from '@/lib/auth-verify';
+
+// ─── Supported locales ───
+
+const locales = ['en', 'hi'];
+const defaultLocale = 'en';
 
 // ─── Auth route classifications ───
 
@@ -22,23 +25,10 @@ const protectedPaths = [
     '/profile',
 ];
 
-const publicPaths = [
-    '/home',
-    '/about',
-    '/how-it-works',
-    '/faq',
-    '/login',
-    '/signup',
-    '/forgot-password',
-    '/privacy',
-    '/facts-and-myths',
-    '/api',
-];
-
-// ─── Helper: strip locale prefix ───
+// ─── Helper functions ───
 
 function stripLocale(pathname: string): string {
-    for (const locale of routing.locales) {
+    for (const locale of locales) {
         if (pathname.startsWith(`/${locale}/`)) return pathname.slice(`/${locale}`.length);
         if (pathname === `/${locale}`) return '/';
     }
@@ -47,17 +37,13 @@ function stripLocale(pathname: string): string {
 
 function getLocaleFromPathname(pathname: string): string | null {
     const seg = pathname.split('/')[1];
-    if (routing.locales.includes(seg as any)) return seg;
+    if (locales.includes(seg as any)) return seg;
     return null;
 }
 
 function isProtected(pathname: string): boolean {
     return protectedPaths.some(p => pathname.startsWith(p));
 }
-
-// ─── Next-intl middleware ───
-
-const intlMiddleware = createMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
@@ -71,15 +57,15 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    // ─── Locale cookie persistence ───
-    // If the URL has NO locale prefix (e.g. /home, /faq, /login),
-    // check the NEXT_LOCALE cookie and redirect to the correct locale.
+    // ─── Locale handling ───
     const pathLocale = getLocaleFromPathname(pathname);
+    
+    // If URL has no locale prefix, redirect to locale-prefixed version
     if (!pathLocale && pathname !== '/') {
         const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value;
-        const locale = cookieLocale && routing.locales.includes(cookieLocale as any)
+        const locale = cookieLocale && locales.includes(cookieLocale as any)
             ? cookieLocale
-            : routing.defaultLocale;
+            : defaultLocale;
         const targetPath = pathname === '/' ? `/${locale}/home` : `/${locale}${pathname}`;
         return NextResponse.redirect(new URL(targetPath, request.url));
     }
@@ -90,30 +76,26 @@ export async function middleware(request: NextRequest) {
 
     if (isProtected(pathWithoutLocale)) {
         if (!token) {
-            const locale = pathLocale || routing.defaultLocale;
+            const locale = pathLocale || defaultLocale;
             const loginUrl = new URL(`/${locale}/login`, request.url);
             loginUrl.searchParams.set('redirect', pathWithoutLocale);
             const response = NextResponse.redirect(loginUrl);
-            // Clear potentially tampered cookie
             response.cookies.delete('auth_token');
             return response;
         }
 
-        // Validate the JWT is cryptographically valid (not just present)
         const payload = await verifyToken(token);
         if (!payload) {
-            const locale = pathLocale || routing.defaultLocale;
+            const locale = pathLocale || defaultLocale;
             const loginUrl = new URL(`/${locale}/login`, request.url);
             loginUrl.searchParams.set('redirect', pathWithoutLocale);
             const response = NextResponse.redirect(loginUrl);
-            // Clear invalid/expired token
             response.cookies.delete('auth_token');
             return response;
         }
     }
 
-    // Let next-intl handle locale detection and routing
-    return intlMiddleware(request);
+    return NextResponse.next();
 }
 
 export const config = {
