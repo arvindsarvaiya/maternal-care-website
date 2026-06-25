@@ -24,7 +24,14 @@ export default function middleware(request: NextRequest) {
     const hasLocalePrefix = routing.locales.includes(firstSegment as any);
     const shouldSkip = pathname.startsWith('/api') || pathname.startsWith('/_next') || PUBLIC_FILE.test(pathname);
 
-    if (!shouldSkip && !hasLocalePrefix) {
+    // Never run next-intl middleware on API/static routes — it would redirect
+    // them to /{locale}/api/... which doesn't exist, returning an HTML 404
+    // that breaks JSON parsing on the client ("Unexpected token '<'").
+    if (shouldSkip) {
+        return NextResponse.next();
+    }
+
+    if (!hasLocalePrefix) {
         const locale = getPreferredLocale(request);
         const targetPath = pathname === '/' ? '/home' : pathname;
         const url = request.nextUrl.clone();
@@ -39,5 +46,5 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
