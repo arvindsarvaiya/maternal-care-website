@@ -3,7 +3,7 @@ import { defineRouting } from 'next-intl/routing';
 export const routing = defineRouting({
     locales: ['en', 'hi', 'bn', 'ta', 'te', 'mr', 'gu'],
     defaultLocale: 'en',
-    localeDetection: false,
+    localeDetection: true,
 });
 
 export const localeNames: Record<string, string> = {
