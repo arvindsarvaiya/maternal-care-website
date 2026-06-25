@@ -52,6 +52,10 @@ model User {
   createdSharedNotes            SharedNote[]          @relation("CreatedNotes")
   chatbotSessions               ChatbotSession[]
   notifications                 Notification[]
+  createdMemories               SharedMemory[]
+  createdBabyNames              SharedBabyName[]
+  babyNameLikes                 SharedBabyNameLike[]
+  createdWishlistItems          SharedBabyWishlistItem[]
   auditLogs                     AuditLog[]
   adminContentAuditLogs         AdminContentAuditLog[]
   supportGoalProgress           SupportGoalProgress[]
@@ -684,6 +688,9 @@ model Family {
   sharedTasks  SharedTask[]
   sharedNotes  SharedNote[]
   supportGoals SupportGoal[]
+  memories     SharedMemory[]
+  babyNames    SharedBabyName[]
+  wishlistItems SharedBabyWishlistItem[]
 
   @@map("families")
 }
@@ -986,4 +993,66 @@ model Meal {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("meals")
+}
+
+model SharedMemory {
+  id              String   @id @default(uuid())
+  familyId        String   @map("family_id")
+  createdByUserId String   @map("created_by_user_id")
+  title           String
+  caption         String?
+  imageData       String? @map("image_data")
+  imageMimeType   String? @map("image_mime_type")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdByUserId], references: [id])
+
+  @@map("shared_memories")
+}
+
+model SharedBabyName {
+  id              String   @id @default(uuid())
+  familyId        String   @map("family_id")
+  createdByUserId String   @map("created_by_user_id")
+  name            String
+  meaning         String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdByUserId], references: [id])
+  likes     SharedBabyNameLike[]
+
+  @@map("shared_baby_names")
+}
+
+model SharedBabyNameLike {
+  babyNameId String   @map("baby_name_id")
+  userId     String   @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  babyName SharedBabyName @relation(fields: [babyNameId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([babyNameId, userId])
+  @@map("shared_baby_name_likes")
+}
+
+model SharedBabyWishlistItem {
+  id              String   @id @default(uuid())
+  familyId        String   @map("family_id")
+  createdByUserId String   @map("created_by_user_id")
+  title           String
+  category        String?
+  priority        String   @default("medium")
+  done            Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdByUserId], references: [id])
+
+  @@map("shared_baby_wishlist_items")
 }

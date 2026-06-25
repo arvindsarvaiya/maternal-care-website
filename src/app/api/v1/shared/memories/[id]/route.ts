@@ -20,22 +20,6 @@ const memoryUpdateSchema = z.object({
     message: 'Add text or an image to update this memory',
 });
 
-async function ensureMemoriesTable() {
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS shared_memories (
-            id TEXT PRIMARY KEY,
-            family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-            created_by_user_id TEXT NOT NULL REFERENCES users(id),
-            title TEXT NOT NULL,
-            caption TEXT,
-            image_data TEXT,
-            image_mime_type TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    `);
-}
-
 async function findFamilyId(userId: string): Promise<string | null> {
     const familyAsMother = await prisma.family.findFirst({
         where: { motherUserId: userId },
@@ -48,17 +32,6 @@ async function findFamilyId(userId: string): Promise<string | null> {
         select: { familyId: true },
     });
     return familyMember?.familyId ?? null;
-}
-
-async function getMemoryForFamily(memoryId: string, familyId: string): Promise<{ id: string; title: string } | null> {
-    await ensureMemoriesTable();
-    const rows = await prisma.$queryRaw<Array<{ id: string; title: string }>>`
-        SELECT id::text, title
-        FROM shared_memories
-        WHERE id = ${memoryId} AND family_id = ${familyId}
-        LIMIT 1
-    `;
-    return rows[0] ?? null;
 }
 
 function normalizeImage(imageData?: string | null, imageMimeType?: string | null) {
@@ -84,7 +57,10 @@ export async function PATCH(req: NextRequest, context: MemoryRouteContext) {
         const familyId = await findFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
-        const memory = await getMemoryForFamily(id, familyId);
+        const memory = await prisma.sharedMemory.findFirst({
+            where: { id, familyId },
+            select: { id: true, title: true },
+        });
         if (!memory) return notFound('Memory');
 
         const body = await req.json();
@@ -95,23 +71,28 @@ export async function PATCH(req: NextRequest, context: MemoryRouteContext) {
         const caption = parsed.data.caption === undefined ? undefined : stripHtml(parsed.data.caption).trim();
         const normalized = normalizeImage(parsed.data.imageData, parsed.data.imageMimeType);
 
-        await prisma.$executeRaw`
-            UPDATE shared_memories
-            SET title = COALESCE(${title || null}, title),
-                caption = CASE WHEN ${caption === undefined} THEN caption ELSE ${caption || null} END,
-                image_data = CASE
-                    WHEN ${parsed.data.removeImage === true} THEN NULL
-                    WHEN ${parsed.data.imageData === undefined} THEN image_data
-                    ELSE ${normalized.imageData}
-                END,
-                image_mime_type = CASE
-                    WHEN ${parsed.data.removeImage === true} THEN NULL
-                    WHEN ${parsed.data.imageData === undefined} THEN image_mime_type
-                    ELSE ${normalized.imageMimeType}
-                END,
-                updated_at = NOW()
-            WHERE id = ${id} AND family_id = ${familyId}
-        `;
+        const updateData: Record<string, unknown> = {};
+
+        if (title !== undefined) {
+            updateData.title = title;
+        }
+
+        if (caption !== undefined) {
+            updateData.caption = caption || null;
+        }
+
+        if (parsed.data.removeImage === true) {
+            updateData.imageData = null;
+            updateData.imageMimeType = null;
+        } else if (parsed.data.imageData !== undefined) {
+            updateData.imageData = normalized.imageData;
+            updateData.imageMimeType = normalized.imageMimeType;
+        }
+
+        await prisma.sharedMemory.update({
+            where: { id },
+            data: updateData,
+        });
 
         const updatedTitle = title || memory.title;
         const actorName = await buildSharedSpaceActorName(payload.userId);
@@ -140,13 +121,15 @@ export async function DELETE(req: NextRequest, context: MemoryRouteContext) {
         const familyId = await findFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
-        const memory = await getMemoryForFamily(id, familyId);
+        const memory = await prisma.sharedMemory.findFirst({
+            where: { id, familyId },
+            select: { id: true, title: true },
+        });
         if (!memory) return notFound('Memory');
 
-        await prisma.$executeRaw`
-            DELETE FROM shared_memories
-            WHERE id = ${id} AND family_id = ${familyId}
-        `;
+        await prisma.sharedMemory.delete({
+            where: { id },
+        });
 
         const actorName = await buildSharedSpaceActorName(payload.userId);
         await notifySharedSpaceUpdate({
