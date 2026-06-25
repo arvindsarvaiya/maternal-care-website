@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Link, usePathname } from '@/i18n/navigation';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/components/auth-provider';
 import { useNotifications } from '@/components/notification-provider';
@@ -80,6 +81,7 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
     const { user, isMother, isPartner, isAdmin, isPostpartum: authIsPostpartum, logout } = useAuth();
     const { unreadCount } = useNotifications();
     const pathname = usePathname();
+    const router = useRouter();
     const [collapsed, setCollapsed] = React.useState(false);
     const [mobileOpen, setMobileOpen] = React.useState(false);
     const [detectedPhase, setDetectedPhase] = React.useState<'pregnancy' | 'postpartum' | null>(null);

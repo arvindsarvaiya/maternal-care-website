@@ -11,7 +11,8 @@ import { calcPregnancyWeek as calcPregnancyWeekInfo, PregnancyWeekInfo } from '@
 import { calcPostpartumWeek, PostpartumWeekInfo, getRecoveryPhaseLabel } from '@/lib/postpartum-calculator';
 import { getPostpartumWeekKnowledge, type PostpartumWeekKnowledge } from '@/lib/postpartum-knowledge';
 import { getPersonalizedPostpartumWeekKnowledgeForLocale } from '@/lib/postpartum-knowledge-i18n';
-import { Link, useRouter } from '@/i18n/navigation';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
     Baby, Heart, Calendar, Activity,
     ChevronRight, Clock, Droplets,

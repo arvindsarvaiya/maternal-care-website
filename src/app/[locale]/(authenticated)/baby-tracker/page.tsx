@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/components/auth-provider';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Button, Input, Spinner } from '@/components/ui';

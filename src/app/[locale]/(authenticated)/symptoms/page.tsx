@@ -6,7 +6,7 @@ import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Badge, Button, Toggle, Input, Select } from '@/components/ui';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api-client';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import {
     Activity,
     Plus,

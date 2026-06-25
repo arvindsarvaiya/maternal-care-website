@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { useRouter } from 'next/navigation';
 import { setTokenGetter } from '@/lib/api-client';
 
 // ─── Types ───

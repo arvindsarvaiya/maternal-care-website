@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useTranslations } from 'next-intl';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Spinner } from '@/components/ui';

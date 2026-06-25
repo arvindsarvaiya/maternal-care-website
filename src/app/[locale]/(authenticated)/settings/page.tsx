@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Button, Input, Toggle, Select, Spinner } from '@/components/ui';
 import { api } from '@/lib/api-client';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import {
     ChevronLeft,
     User,

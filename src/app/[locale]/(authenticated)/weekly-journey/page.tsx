@@ -11,7 +11,7 @@ import { calcPregnancyWeek } from '@/lib/pregnancy-calculator';
 import { calcPostpartumWeek, getRecoveryPhase, getRecoveryPhaseLabel, RECOVERY_PHASE_BADGES, getRecoveryPhase as getRecoveryPhaseFn } from '@/lib/postpartum-calculator';
 import { formatSourceLegend, getSourceAbbreviations } from '@/lib/source-abbreviations';
 import { formatPostpartumWeekKnowledgeForJourneyForLocale } from '@/lib/postpartum-knowledge-i18n';
-import { Link } from '@/i18n/navigation';
+import Link from 'next/link';
 import {
     ChevronLeft,
     ChevronRight,
