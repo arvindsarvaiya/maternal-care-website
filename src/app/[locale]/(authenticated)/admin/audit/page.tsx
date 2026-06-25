@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Badge, EmptyState, Select } from '@/components/ui';
 import { cn } from '@/lib/utils';

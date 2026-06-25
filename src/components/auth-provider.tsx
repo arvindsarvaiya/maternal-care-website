@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useLocaleRouter } from '@/i18n/locale-link';
 import { setTokenGetter } from '@/lib/api-client';
 
 // ─── Types ───
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const router = useRouter();
+    const router = useLocaleRouter();
 
     // Check for stored token on mount
     useEffect(() => {

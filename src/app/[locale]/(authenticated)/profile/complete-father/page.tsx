@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { LocaleLink as Link, useLocaleRouter } from '@/i18n/locale-link';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Card, Select, Checkbox, Spinner } from '@/components/ui';
 import { apiFetch } from '@/lib/api-client';
@@ -92,7 +91,7 @@ const EMPTY_FORM: FormData = {
 // ─── Component ───
 export default function FatherProfileCompletePage() {
     const { user } = useAuth();
-    const router = useRouter();
+    const router = useLocaleRouter();
     const t = useTranslations('fatherProfile');
     const [form, setForm] = useState<FormData>(EMPTY_FORM);
     const [error, setError] = useState('');

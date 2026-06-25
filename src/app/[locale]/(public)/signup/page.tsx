@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { LocaleLink as Link, useLocaleRouter } from '@/i18n/locale-link';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Card } from '@/components/ui';
@@ -27,7 +26,7 @@ export default function SignupPage() {
     const n = useTranslations('nav');
     const c = useTranslations('common');
     const { signup } = useAuth();
-    const router = useRouter();
+    const router = useLocaleRouter();
 
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
     const [firstName, setFirstName] = useState('');

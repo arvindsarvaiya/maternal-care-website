@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { LocaleLink as Link, useLocaleRouter } from '@/i18n/locale-link';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Card } from '@/components/ui';
@@ -38,7 +38,7 @@ export default function LoginPage() {
   const n = useTranslations('nav');
   const c = useTranslations('common');
   const { login, verify2FA, getDashboardUrl } = useAuth();
-  const router = useRouter();
+  const router = useLocaleRouter();
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get('redirect');
   // Validate redirect target to prevent open redirect attacks

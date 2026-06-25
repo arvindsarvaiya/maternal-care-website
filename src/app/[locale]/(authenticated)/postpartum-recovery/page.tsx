@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import { useAuth } from '@/components/auth-provider';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Button, Spinner } from '@/components/ui';

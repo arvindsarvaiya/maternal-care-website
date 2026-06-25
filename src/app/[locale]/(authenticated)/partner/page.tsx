@@ -5,7 +5,7 @@ import { useAuth } from '@/components/auth-provider';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Badge, Button, ProgressBar } from '@/components/ui';
 import { useTranslations, useLocale } from 'next-intl';
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import { api } from '@/lib/api-client';
 import { getRecoveryPhase, getRecoveryPhaseLabel } from '@/lib/postpartum-calculator';
 import { getWeekKnowledgeForLocale, type WeekKnowledge } from '@/lib/pregnancy-knowledge-i18n';

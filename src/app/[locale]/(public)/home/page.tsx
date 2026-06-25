@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import { useTranslations } from 'next-intl';
 import { PublicNavbar } from '@/components/public-navbar';
 import svgPaths from '@/lib/svg-paths';

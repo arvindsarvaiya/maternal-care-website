@@ -6,7 +6,7 @@ import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Badge, Button, ProgressBar } from '@/components/ui';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api-client';
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import {
     ChevronLeft,
     Shield,

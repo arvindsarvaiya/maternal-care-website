@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import { useTranslations } from 'next-intl';
 import { Button, Input, Card } from '@/components/ui';
 

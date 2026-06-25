@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { LocaleLink as Link, useLocaleRouter } from '@/i18n/locale-link';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Card, Select, Checkbox, Spinner } from '@/components/ui';
 import { apiFetch } from '@/lib/api-client';
@@ -185,7 +184,7 @@ const EMPTY_FORM: FormData = {
 // ─── Component ───
 export default function ProfileCompletePage() {
     const { user, getDashboardUrl, isPostpartum: authIsPostpartum, isMother } = useAuth();
-    const router = useRouter();
+    const router = useLocaleRouter();
     const t = useTranslations('profile');
     const [form, setForm] = useState<FormData>(EMPTY_FORM);
     const [error, setError] = useState('');
@@ -298,7 +297,7 @@ export default function ProfileCompletePage() {
             // Reset time to compare dates only
             due.setHours(0, 0, 0, 0);
             now.setHours(0, 0, 0, 0);
-            
+
             if (due < now) {
                 // Due date is in the past, switch to postpartum mode
                 setDetectedPhase('postpartum');

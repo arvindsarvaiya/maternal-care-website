@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { LocaleLink as Link, useLocaleRouter } from '@/i18n/locale-link';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Card, Select, Checkbox, Spinner } from '@/components/ui';
 import { apiFetch } from '@/lib/api-client';
@@ -203,7 +202,7 @@ const POSTPARTUM_SUPPORT_OPTIONS = [
 // ─── Component ───
 export default function ProfilePage() {
     const { user, getDashboardUrl, isPostpartum: authIsPostpartum } = useAuth();
-    const router = useRouter();
+    const router = useLocaleRouter();
     const t = useTranslations('profile');
     const sharedT = useTranslations('shared');
     const [dashboardUrl, setDashboardUrl] = useState<string>('/mother');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import { LanguageButton } from '@/components/language-selector';

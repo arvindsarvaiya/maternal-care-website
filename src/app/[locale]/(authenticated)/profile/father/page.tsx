@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { LocaleLink as Link, useLocaleRouter } from '@/i18n/locale-link';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Card, Select, Checkbox, Spinner } from '@/components/ui';
 import { apiFetch } from '@/lib/api-client';
@@ -96,7 +95,7 @@ interface ProfileData {
 // ─── Component ───
 export default function FatherProfilePage() {
     const { user } = useAuth();
-    const router = useRouter();
+    const router = useLocaleRouter();
     const t = useTranslations('fatherProfile');
 
     // ── Translated option arrays ──

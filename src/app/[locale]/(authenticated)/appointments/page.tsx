@@ -6,7 +6,7 @@ import { useAuth } from '@/components/auth-provider';
 import { AuthenticatedShell } from '@/components/authenticated-shell';
 import { Card, Badge, Button, Input, Select } from '@/components/ui';
 import { api } from '@/lib/api-client';
-import Link from 'next/link';
+import { LocaleLink as Link } from '@/i18n/locale-link';
 import {
     Calendar,
     ChevronLeft,

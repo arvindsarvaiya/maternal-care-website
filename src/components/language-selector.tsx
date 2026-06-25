@@ -7,6 +7,7 @@ import { localeNames } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui';
 import { Globe } from 'lucide-react';
+import { useLocaleStore } from '@/i18n/locale-store';
 
 export function LanguageSelector() {
     const t = useTranslations('language');
@@ -14,16 +15,19 @@ export function LanguageSelector() {
     const params = useParams();
     const currentLocale = (params?.locale as string) || 'en';
     const [selectedLocale, setSelectedLocale] = useState(currentLocale);
+    const setLocale = useLocaleStore((s) => s.setLocale);
+    const localize = useLocaleStore((s) => s.localize);
 
     useEffect(() => {
         setSelectedLocale(currentLocale);
     }, [currentLocale]);
 
     const handleSave = () => {
-        document.cookie = `NEXT_LOCALE=${selectedLocale}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
+        setLocale(selectedLocale as any);
+        // Navigate to the same page but in the new locale.
         const pathParts = window.location.pathname.split('/');
         pathParts[1] = selectedLocale;
-        router.push(pathParts.join('/'));
+        router.push(localize(pathParts.slice(2).join('/') || '/home'));
     };
 
     return (
@@ -61,6 +65,8 @@ export function LanguageButton() {
     const currentLocale = (params?.locale as string) || 'en';
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
+    const setLocale = useLocaleStore((s) => s.setLocale);
+    const localize = useLocaleStore((s) => s.localize);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -74,12 +80,12 @@ export function LanguageButton() {
     }, []);
 
     const switchLocale = (locale: string) => {
-        document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
+        setLocale(locale as any);
         setOpen(false);
         if (locale !== currentLocale) {
             const pathParts = window.location.pathname.split('/');
             pathParts[1] = locale;
-            router.push(pathParts.join('/'));
+            router.push(localize(pathParts.slice(2).join('/') || '/home'));
         }
     };
 
@@ -134,6 +140,8 @@ export function LanguagePopup() {
     const currentLocale = (params?.locale as string) || 'en';
     const [selectedLocale, setSelectedLocale] = useState(currentLocale);
     const [isVisible, setIsVisible] = useState(false);
+    const setLocale = useLocaleStore((s) => s.setLocale);
+    const localize = useLocaleStore((s) => s.localize);
 
     useEffect(() => {
         // Use a dedicated cookie so the popup shows even though middleware sets NEXT_LOCALE
@@ -155,12 +163,12 @@ export function LanguagePopup() {
 
     const handleSave = () => {
         document.cookie = 'LANG_POPUP_SEEN=1; path=/; max-age=' + (365 * 24 * 60 * 60) + '; SameSite=Lax';
-        document.cookie = `NEXT_LOCALE=${selectedLocale}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`;
+        setLocale(selectedLocale as any);
         setIsVisible(false);
         if (selectedLocale !== currentLocale) {
             const pathParts = window.location.pathname.split('/');
             pathParts[1] = selectedLocale;
-            router.push(pathParts.join('/'));
+            router.push(localize(pathParts.slice(2).join('/') || '/home'));
         }
     };
 
