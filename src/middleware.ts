@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { routing } from '@/i18n/routing';
 import { verifyToken } from '@/lib/auth-verify';
-import { rateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limit';
 
 // ─── Auth route classifications ───
 
@@ -63,32 +62,12 @@ const intlMiddleware = createMiddleware(routing);
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Allow static files and assets to pass through unchanged (no rate limit)
+    // Allow static files and assets to pass through unchanged
     if (
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||
         pathname.includes('.')
     ) {
-        return NextResponse.next();
-    }
-
-    // Apply global rate limiting to all API routes (100 req/min per IP)
-    if (pathname.startsWith('/api/')) {
-        const ip = getClientIP(request);
-        const result = rateLimit(ip, RATE_LIMITS.GENERAL);
-        if (!result.allowed) {
-            const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
-            return new NextResponse(
-                JSON.stringify({ error: result.message || 'Too many requests' }),
-                {
-                    status: 429,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Retry-After': String(retryAfter),
-                    },
-                }
-            );
-        }
         return NextResponse.next();
     }
 
