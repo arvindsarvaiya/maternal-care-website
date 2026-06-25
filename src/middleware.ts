@@ -2,7 +2,7 @@ import createMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { routing } from '@/i18n/routing';
-import { verifyToken } from '@/lib/auth';
+import { verifyToken } from '@/lib/auth-verify';
 import { rateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limit';
 
 // ─── Auth route classifications ───
