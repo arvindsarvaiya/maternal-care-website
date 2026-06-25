@@ -107,6 +107,20 @@ export async function POST(req: NextRequest) {
             data: { userId: user.id, roleId: role.id },
         });
 
+        // Auto-create a Family for mothers so shared-space features work immediately
+        if (roleName === 'mother' || roleName === 'postpartum') {
+            try {
+                await prisma.family.create({
+                    data: {
+                        motherUserId: user.id,
+                        familyName: `${user.firstName}'s Family`,
+                    },
+                });
+            } catch (familyErr) {
+                logger.error('Auto-create Family on signup error:', 'signup', familyErr instanceof Error ? familyErr : undefined);
+            }
+        }
+
         // If postpartum signup, auto-create a PregnancyProfile in postpartum phase
         if (roleName === 'postpartum' && data!.deliveryDate) {
             const deliveryDt = new Date(data!.deliveryDate);

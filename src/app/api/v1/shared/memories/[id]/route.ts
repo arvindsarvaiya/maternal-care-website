@@ -5,6 +5,7 @@ import { getAuthPayload, success, badRequest, notFound, unauthorized } from '@/l
 import { stripHtml } from '@/lib/sanitize';
 import { logger } from '@/lib/logger';
 import { buildSharedSpaceActorName, notifySharedSpaceUpdate } from '@/lib/shared-space-notifications';
+import { findOrCreateFamilyId } from '@/lib/family-utils';
 
 const MAX_IMAGE_DATA_LENGTH = 900_000;
 
@@ -19,20 +20,6 @@ const memoryUpdateSchema = z.object({
 }).refine(data => Boolean(data.title?.trim() || data.caption?.trim() || data.imageData || data.removeImage), {
     message: 'Add text or an image to update this memory',
 });
-
-async function findFamilyId(userId: string): Promise<string | null> {
-    const familyAsMother = await prisma.family.findFirst({
-        where: { motherUserId: userId },
-        select: { id: true },
-    });
-    if (familyAsMother) return familyAsMother.id;
-
-    const familyMember = await prisma.familyMember.findFirst({
-        where: { userId, inviteStatus: 'accepted' },
-        select: { familyId: true },
-    });
-    return familyMember?.familyId ?? null;
-}
 
 function normalizeImage(imageData?: string | null, imageMimeType?: string | null) {
     const cleanImageData = imageData?.trim() || null;
@@ -54,7 +41,7 @@ export async function PATCH(req: NextRequest, context: MemoryRouteContext) {
         if (!payload) return unauthorized();
 
         const { id } = await context.params;
-        const familyId = await findFamilyId(payload.userId);
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         const memory = await prisma.sharedMemory.findFirst({
@@ -118,7 +105,7 @@ export async function DELETE(req: NextRequest, context: MemoryRouteContext) {
         if (!payload) return unauthorized();
 
         const { id } = await context.params;
-        const familyId = await findFamilyId(payload.userId);
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         const memory = await prisma.sharedMemory.findFirst({

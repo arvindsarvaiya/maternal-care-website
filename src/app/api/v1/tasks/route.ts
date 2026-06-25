@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { getAuthPayload, success, created, badRequest, notFound, unauthorized } from '@/lib/api-utils';
 import { stripHtml } from '@/lib/sanitize';
 import { logger } from '@/lib/logger';
+import { findOrCreateFamilyId } from '@/lib/family-utils';
 
 // ─── GET: List shared tasks for the user's family ───
 export async function GET(req: NextRequest) {
@@ -11,15 +12,7 @@ export async function GET(req: NextRequest) {
         const payload = await getAuthPayload(req);
         if (!payload) return unauthorized();
 
-        // Find the user's family (either as mother or member)
-        const familyAsMother = await prisma.family.findFirst({
-            where: { motherUserId: payload.userId },
-        });
-        const familyMember = await prisma.familyMember.findFirst({
-            where: { userId: payload.userId, inviteStatus: 'accepted' },
-        });
-
-        const familyId = familyAsMother?.id || familyMember?.familyId;
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         const url = new URL(req.url);
@@ -119,31 +112,27 @@ export async function POST(req: NextRequest) {
         const parsed = createTaskSchema.safeParse(body);
         if (!parsed.success) return badRequest(parsed.error.issues.map(i => i.message).join('; '));
 
-        // Find the user's family
-        const familyAsMother = await prisma.family.findFirst({
-            where: { motherUserId: payload.userId },
-        });
-        const familyMember = await prisma.familyMember.findFirst({
-            where: { userId: payload.userId, inviteStatus: 'accepted' },
-        });
-        const familyId = familyAsMother?.id || familyMember?.familyId;
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         // Auto-assign to linked partner if no assignedToUserIds provided
         let assignedToUserIds = parsed.data.assignedToUserIds;
         if (!assignedToUserIds || assignedToUserIds.length === 0) {
             let partnerId: string | null = null;
-            if (familyAsMother) {
+            // Check if user is the mother of this family
+            const family = await prisma.family.findUnique({
+                where: { id: familyId },
+                select: { motherUserId: true },
+            });
+            if (family && family.motherUserId === payload.userId) {
+                // User is the mother → look for linked partner
                 const partnerMember = await prisma.familyMember.findFirst({
-                    where: { familyId: familyAsMother.id, memberRole: 'partner', inviteStatus: 'accepted' },
+                    where: { familyId, memberRole: 'partner', inviteStatus: 'accepted' },
                     select: { userId: true },
                 });
                 partnerId = partnerMember?.userId || null;
-            } else if (familyMember) {
-                const family = await prisma.family.findUnique({
-                    where: { id: familyMember.familyId },
-                    select: { motherUserId: true },
-                });
+            } else {
+                // User is a member (partner) → assign to the mother
                 partnerId = family?.motherUserId || null;
             }
             if (partnerId) {

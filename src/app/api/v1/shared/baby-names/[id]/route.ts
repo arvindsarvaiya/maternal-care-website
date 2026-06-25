@@ -3,20 +3,7 @@ import prisma from '@/lib/prisma';
 import { getAuthPayload, success, badRequest, notFound, unauthorized } from '@/lib/api-utils';
 import { logger } from '@/lib/logger';
 import { buildSharedSpaceActorName, notifySharedSpaceUpdate } from '@/lib/shared-space-notifications';
-
-async function findFamilyId(userId: string): Promise<string | null> {
-    const familyAsMother = await prisma.family.findFirst({
-        where: { motherUserId: userId },
-        select: { id: true },
-    });
-    if (familyAsMother) return familyAsMother.id;
-
-    const familyMember = await prisma.familyMember.findFirst({
-        where: { userId, inviteStatus: 'accepted' },
-        select: { familyId: true },
-    });
-    return familyMember?.familyId ?? null;
-}
+import { findOrCreateFamilyId } from '@/lib/family-utils';
 
 async function getBabyNameForFamily(nameId: string, familyId: string): Promise<{ id: string; name: string } | null> {
     const rows = await prisma.$queryRaw<Array<{ id: string; name: string }>>`
@@ -36,7 +23,7 @@ export async function PATCH(req: NextRequest, context: BabyNameRouteContext) {
         if (!payload) return unauthorized();
 
         const { id } = await context.params;
-        const familyId = await findFamilyId(payload.userId);
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         const babyName = await getBabyNameForFamily(id, familyId);
@@ -88,7 +75,7 @@ export async function DELETE(req: NextRequest, context: BabyNameRouteContext) {
         if (!payload) return unauthorized();
 
         const { id } = await context.params;
-        const familyId = await findFamilyId(payload.userId);
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         const babyName = await getBabyNameForFamily(id, familyId);

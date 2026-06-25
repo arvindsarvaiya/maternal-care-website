@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { getAuthPayload, success, created, badRequest, notFound, unauthorized } from '@/lib/api-utils';
 import { stripHtml } from '@/lib/sanitize';
 import { logger } from '@/lib/logger';
+import { findOrCreateFamilyId } from '@/lib/family-utils';
 
 // ─── GET: List shared notes for the user's family ───
 export async function GET(req: NextRequest) {
@@ -11,15 +12,7 @@ export async function GET(req: NextRequest) {
         const payload = await getAuthPayload(req);
         if (!payload) return unauthorized();
 
-        // Find the user's family (either as mother or member)
-        const familyAsMother = await prisma.family.findFirst({
-            where: { motherUserId: payload.userId },
-        });
-        const familyMember = await prisma.familyMember.findFirst({
-            where: { userId: payload.userId, inviteStatus: 'accepted' },
-        });
-
-        const familyId = familyAsMother?.id || familyMember?.familyId;
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         const url = new URL(req.url);
@@ -94,14 +87,7 @@ export async function POST(req: NextRequest) {
         const parsed = createNoteSchema.safeParse(body);
         if (!parsed.success) return badRequest(parsed.error.issues.map(i => i.message).join('; '));
 
-        // Find the user's family
-        const familyAsMother = await prisma.family.findFirst({
-            where: { motherUserId: payload.userId },
-        });
-        const familyMember = await prisma.familyMember.findFirst({
-            where: { userId: payload.userId, inviteStatus: 'accepted' },
-        });
-        const familyId = familyAsMother?.id || familyMember?.familyId;
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         // Find or create visibility setting

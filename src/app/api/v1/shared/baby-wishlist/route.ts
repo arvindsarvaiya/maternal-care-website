@@ -6,6 +6,7 @@ import { getAuthPayload, success, created, badRequest, notFound, unauthorized } 
 import { stripHtml } from '@/lib/sanitize';
 import { logger } from '@/lib/logger';
 import { buildSharedSpaceActorName, notifySharedSpaceUpdate } from '@/lib/shared-space-notifications';
+import { findOrCreateFamilyId } from '@/lib/family-utils';
 
 interface RawWishlistItem {
     id: string;
@@ -34,20 +35,6 @@ async function ensureWishlistTable() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `);
-}
-
-async function findFamilyId(userId: string): Promise<string | null> {
-    const familyAsMother = await prisma.family.findFirst({
-        where: { motherUserId: userId },
-        select: { id: true },
-    });
-    if (familyAsMother) return familyAsMother.id;
-
-    const familyMember = await prisma.familyMember.findFirst({
-        where: { userId, inviteStatus: 'accepted' },
-        select: { familyId: true },
-    });
-    return familyMember?.familyId ?? null;
 }
 
 function mapWishlistItem(row: RawWishlistItem) {
@@ -101,7 +88,7 @@ export async function GET(req: NextRequest) {
         if (!payload) return unauthorized();
 
         await ensureWishlistTable();
-        const familyId = await findFamilyId(payload.userId);
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         return success({ items: await listWishlistItems(familyId) });
@@ -121,7 +108,7 @@ export async function POST(req: NextRequest) {
         if (!parsed.success) return badRequest(parsed.error.issues.map(i => i.message).join('; '));
 
         await ensureWishlistTable();
-        const familyId = await findFamilyId(payload.userId);
+        const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
         const itemId = randomUUID();
