@@ -8,8 +8,7 @@ import { Card, Badge, ProgressBar } from '@/components/ui';
 import { api } from '@/lib/api-client';
 import { calcPostpartumWeek, PostpartumWeekInfo, getRecoveryPhaseLabel } from '@/lib/postpartum-calculator';
 import { getPersonalizedPostpartumWeekKnowledgeForLocale, type PersonalizationFactors, type PostpartumWeekKnowledge } from '@/lib/postpartum-knowledge-i18n';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import {
     Baby, Heart, Calendar, Activity, BookOpen,
     ChevronRight, Clock, Droplets,

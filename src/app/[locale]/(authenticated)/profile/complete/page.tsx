@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { Link, useRouter } from '@/i18n/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Input, Card, Select, Checkbox, Spinner } from '@/components/ui';
 import { apiFetch } from '@/lib/api-client';
@@ -298,7 +297,7 @@ export default function ProfileCompletePage() {
             // Reset time to compare dates only
             due.setHours(0, 0, 0, 0);
             now.setHours(0, 0, 0, 0);
-            
+
             if (due < now) {
                 // Due date is in the past, switch to postpartum mode
                 setDetectedPhase('postpartum');

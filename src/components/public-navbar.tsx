@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import { Link, usePathname } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
-import { usePathname } from 'next/navigation';
 import { LanguageButton } from '@/components/language-selector';
 
 export function PublicNavbar() {
