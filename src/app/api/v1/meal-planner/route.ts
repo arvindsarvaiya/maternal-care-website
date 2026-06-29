@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
                 trimester,
                 diet,
             },
-            orderBy: { createdAt: 'asc' }, // deterministic ordering for consistent rotation
+            orderBy: { name: 'asc' }, // deterministic ordering for consistent rotation
         });
 
         if (allMeals.length === 0) {
