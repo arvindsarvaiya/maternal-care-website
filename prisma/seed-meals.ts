@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -10,6 +12,18 @@ interface MealInput {
     folate: number;
     iron: number;
     calcium: number;
+}
+
+interface MealTranslations {
+    [mealName: string]: {
+        en: string;
+        hi: string;
+        bn: string;
+        ta: string;
+        te: string;
+        mr: string;
+        gu: string;
+    };
 }
 
 const vegMeals: MealInput[] = [
@@ -278,19 +292,51 @@ const vegMeals: MealInput[] = [
     { name: "Curd Daliya Thick Platter with Tempered Curry Leaves", mealType: "DINNER", trimester: "THIRD", calories: 425, folate: 48, iron: 2.5, calcium: 240 },
 ];
 
+async function loadTranslations(): Promise<MealTranslations> {
+    const translationsPath = path.join(__dirname, 'meal-translations.json');
+    const translationsContent = await fs.readFile(translationsPath, 'utf-8');
+    const data = JSON.parse(translationsContent);
+    return data.meals;
+}
+
+async function getLanguageCode(lang: string): Promise<string> {
+    const language = await prisma.language.findFirst({
+        where: { code: lang }
+    });
+    if (!language) {
+        throw new Error(`Language ${lang} not found in database`);
+    }
+    return language.id;
+}
+
 async function main() {
     console.log(`Seeding ${vegMeals.length} vegetarian meals...`);
 
-    // Clear existing meals
-    await prisma.meal.deleteMany();
-    console.log('Cleared existing meals.');
+    // Load translations
+    const translations = await loadTranslations();
+    console.log('Loaded meal translations.');
 
-    // Batch insert
+    // Clear existing meals and translations
+    await prisma.mealTranslation.deleteMany();
+    await prisma.meal.deleteMany();
+    console.log('Cleared existing meals and translations.');
+
+    // Get language IDs
+    const languageIds: Record<string, string> = {};
+    const languages = ['en', 'hi', 'bn', 'ta', 'te', 'mr', 'gu'];
+    for (const lang of languages) {
+        languageIds[lang] = await getLanguageCode(lang);
+    }
+    console.log('Retrieved language IDs.');
+
+    // Batch insert meals with translations
     let inserted = 0;
     for (const meal of vegMeals) {
-        await prisma.meal.create({
+        const mealTranslations = translations[meal.name];
+        
+        // Create meal without name (name is now in translations)
+        const createdMeal = await prisma.meal.create({
             data: {
-                name: meal.name,
                 mealType: meal.mealType,
                 trimester: meal.trimester,
                 calories: meal.calories,
@@ -298,12 +344,44 @@ async function main() {
                 iron: meal.iron,
                 calcium: meal.calcium,
                 diet: 'veg',
+                translations: {
+                    create: [
+                        {
+                            languageId: languageIds.en,
+                            name: mealTranslations?.en || meal.name
+                        },
+                        {
+                            languageId: languageIds.hi,
+                            name: mealTranslations?.hi || meal.name
+                        },
+                        {
+                            languageId: languageIds.bn,
+                            name: mealTranslations?.bn || meal.name
+                        },
+                        {
+                            languageId: languageIds.ta,
+                            name: mealTranslations?.ta || meal.name
+                        },
+                        {
+                            languageId: languageIds.te,
+                            name: mealTranslations?.te || meal.name
+                        },
+                        {
+                            languageId: languageIds.mr,
+                            name: mealTranslations?.mr || meal.name
+                        },
+                        {
+                            languageId: languageIds.gu,
+                            name: mealTranslations?.gu || meal.name
+                        }
+                    ]
+                }
             },
         });
         inserted++;
     }
 
-    console.log(`Successfully seeded ${inserted} meals.`);
+    console.log(`Successfully seeded ${inserted} meals with translations.`);
 
     // Summary
     const counts = await prisma.meal.groupBy({

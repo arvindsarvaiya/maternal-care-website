@@ -63,31 +63,31 @@ interface MealPlanResponse {
 
 // ─── Meal type display config ───
 
-const MEAL_TYPE_META: Record<string, { icon: React.ElementType; label: string; color: string; bgClass: string; borderClass: string }> = {
+const MEAL_TYPE_META: Record<string, { icon: React.ElementType; labelKey: string; color: string; bgClass: string; borderClass: string }> = {
     breakfast: {
         icon: Coffee,
-        label: 'Breakfast',
+        labelKey: 'mealPlanner.breakfast',
         color: 'text-amber-600',
         bgClass: 'bg-amber-50 dark:bg-amber-950/30',
         borderClass: 'border-amber-200 dark:border-amber-800',
     },
     lunch: {
         icon: Sun,
-        label: 'Lunch',
+        labelKey: 'mealPlanner.lunch',
         color: 'text-orange-600',
         bgClass: 'bg-orange-50 dark:bg-orange-950/30',
         borderClass: 'border-orange-200 dark:border-orange-800',
     },
     snack: {
         icon: ChefHat,
-        label: 'Snack',
+        labelKey: 'mealPlanner.snack',
         color: 'text-purple-600',
         bgClass: 'bg-purple-50 dark:bg-purple-950/30',
         borderClass: 'border-purple-200 dark:border-purple-800',
     },
     dinner: {
         icon: Moon,
-        label: 'Dinner',
+        labelKey: 'mealPlanner.dinner',
         color: 'text-indigo-600',
         bgClass: 'bg-indigo-50 dark:bg-indigo-950/30',
         borderClass: 'border-indigo-200 dark:border-indigo-800',
@@ -134,13 +134,13 @@ export default function MealPlannerPage() {
     }, [fetchMealPlan]);
 
     // ─── Trimester label ───
-    const trimesterLabel = (t: string) => {
+    const trimesterLabel = (trimester: string) => {
         const map: Record<string, string> = {
-            FIRST: 'First Trimester',
-            SECOND: 'Second Trimester',
-            THIRD: 'Third Trimester',
+            FIRST: t('mealPlanner.trimesterFirst'),
+            SECOND: t('mealPlanner.trimesterSecond'),
+            THIRD: t('mealPlanner.trimesterThird'),
         };
-        return map[t] || t;
+        return map[trimester] || trimester;
     };
 
     // ─── Loading skeleton ───
@@ -169,16 +169,16 @@ export default function MealPlannerPage() {
                         <div className="text-center py-12">
                             <AlertCircle className="w-12 h-12 text-razzmatazz-500 mx-auto mb-4" />
                             <h3 className="text-lg font-semibold text-surface-800 dark:text-surface-200 mb-2">
-                                {error || 'No meal plan available'}
+                                {error || t('mealPlanner.noMealPlan')}
                             </h3>
                             <p className="text-surface-500 mb-6">
                                 {error?.includes('Pregnancy profile')
-                                    ? 'Please complete your pregnancy profile first to get personalized meal recommendations.'
-                                    : 'We could not generate your meal plan. Please try again.'}
+                                    ? t('mealPlanner.profileNeeded')
+                                    : t('mealPlanner.tryAgainMsg')}
                             </p>
                             <Button variant="primary" onClick={() => fetchMealPlan()}>
                                 <RefreshCw className="w-4 h-4 mr-2" />
-                                Try Again
+                                {t('mealPlanner.tryAgain')}
                             </Button>
                         </div>
                     </Card>
@@ -197,11 +197,11 @@ export default function MealPlannerPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-100 flex items-center gap-2">
                             <UtensilsCrossed className="w-6 h-6 text-primary-500" />
-                            Today's Meal Plan
+                            {t('mealPlanner.title')}
                         </h1>
                         <p className="text-surface-500 mt-1 flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
-                            Week {mealPlan.pregnancyWeek} &middot; Day {mealPlan.pregnancyDay} &middot;{' '}
+                            {t('mealPlanner.weekDay', { week: mealPlan.pregnancyWeek, day: mealPlan.pregnancyDay })}{' '}
                             <Badge variant="primary">{trimesterLabel(mealPlan.trimester)}</Badge>
                         </p>
                     </div>
@@ -212,7 +212,7 @@ export default function MealPlannerPage() {
                         loading={refreshing}
                         icon={<RefreshCw className="w-4 h-4" />}
                     >
-                        Refresh
+                        {t('mealPlanner.refresh')}
                     </Button>
                 </div>
 
@@ -221,45 +221,44 @@ export default function MealPlannerPage() {
                     <div className="flex items-center gap-2 mb-1">
                         <Sparkles className="w-5 h-5 text-primary-500" />
                         <h2 className="text-lg font-semibold text-surface-900 dark:text-surface-100">
-                            Nutrition from Today's Meals
+                            {t('mealPlanner.nutritionTitle')}
                         </h2>
                     </div>
                     <p className="text-xs text-surface-400 mb-4">
-                        Contribution from 4 planned meals. Full daily needs are met through
-                        additional snacks, beverages, and prenatal supplements.
+                        {t('mealPlanner.nutritionDesc')}
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {[
                             {
                                 icon: Flame,
-                                label: 'Calories',
+                                label: t('mealPlanner.calories'),
                                 value: mealPlan.dailyTotals.calories,
                                 target: targets.calories,
-                                unit: 'kcal',
+                                unit: t('mealPlanner.unitKcal'),
                                 color: 'text-orange-500',
                             },
                             {
                                 icon: Leaf,
-                                label: 'Folate',
+                                label: t('mealPlanner.folate'),
                                 value: Math.round(mealPlan.dailyTotals.folate),
                                 target: targets.folate,
-                                unit: 'mcg',
+                                unit: t('mealPlanner.unitFolate'),
                                 color: 'text-green-500',
                             },
                             {
                                 icon: Droplets,
-                                label: 'Iron',
+                                label: t('mealPlanner.iron'),
                                 value: Math.round(mealPlan.dailyTotals.iron * 10) / 10,
                                 target: targets.iron,
-                                unit: 'mg',
+                                unit: t('mealPlanner.unitIron'),
                                 color: 'text-red-500',
                             },
                             {
                                 icon: Bone,
-                                label: 'Calcium',
+                                label: t('mealPlanner.calcium'),
                                 value: Math.round(mealPlan.dailyTotals.calcium),
                                 target: targets.calcium,
-                                unit: 'mg',
+                                unit: t('mealPlanner.unitCalcium'),
                                 color: 'text-blue-500',
                             },
                         ].map(nut => (
@@ -304,7 +303,7 @@ export default function MealPlannerPage() {
                                     </div>
                                     <div>
                                         <h3 className={`text-sm font-semibold ${meta.color}`}>
-                                            {meta.label}
+                                            {t(meta.labelKey)}
                                         </h3>
                                         <p className="text-base font-medium text-surface-900 dark:text-surface-100">
                                             {slot.meal.name}
@@ -319,28 +318,28 @@ export default function MealPlannerPage() {
                                         <p className="text-xs font-semibold text-surface-800 dark:text-surface-200">
                                             {slot.nutritionalSummary.calories}
                                         </p>
-                                        <p className="text-[10px] text-surface-400">kcal</p>
+                                        <p className="text-[10px] text-surface-400">{t('mealPlanner.unitKcal')}</p>
                                     </div>
                                     <div>
                                         <Leaf className="w-3.5 h-3.5 text-green-500 mx-auto mb-0.5" />
                                         <p className="text-xs font-semibold text-surface-800 dark:text-surface-200">
                                             {Math.round(slot.nutritionalSummary.folate)}
                                         </p>
-                                        <p className="text-[10px] text-surface-400">mcg folate</p>
+                                        <p className="text-[10px] text-surface-400">{t('mealPlanner.unitFolate')}</p>
                                     </div>
                                     <div>
                                         <Droplets className="w-3.5 h-3.5 text-red-500 mx-auto mb-0.5" />
                                         <p className="text-xs font-semibold text-surface-800 dark:text-surface-200">
                                             {Math.round(slot.nutritionalSummary.iron * 10) / 10}
                                         </p>
-                                        <p className="text-[10px] text-surface-400">mg iron</p>
+                                        <p className="text-[10px] text-surface-400">{t('mealPlanner.unitIron')}</p>
                                     </div>
                                     <div>
                                         <Bone className="w-3.5 h-3.5 text-blue-500 mx-auto mb-0.5" />
                                         <p className="text-xs font-semibold text-surface-800 dark:text-surface-200">
                                             {Math.round(slot.nutritionalSummary.calcium)}
                                         </p>
-                                        <p className="text-[10px] text-surface-400">mg calcium</p>
+                                        <p className="text-[10px] text-surface-400">{t('mealPlanner.unitCalcium')}</p>
                                     </div>
                                 </div>
                             </Card>
@@ -350,8 +349,7 @@ export default function MealPlannerPage() {
 
                 {/* ─── Disclaimer ─── */}
                 <p className="text-xs text-surface-400 text-center">
-                    This meal plan is for informational purposes only. Please consult your healthcare provider
-                    for personalized dietary advice during pregnancy.
+                    {t('mealPlanner.disclaimer')}
                 </p>
             </div>
         </AuthenticatedShell>

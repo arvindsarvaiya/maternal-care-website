@@ -147,6 +147,7 @@ model Language {
   postpartumWeekContents PostpartumWeekContent[]
   faqs                  Faq[]
   reminderTemplates     ReminderTemplate[]
+  mealTranslations      MealTranslation[]
 
   @@map("languages")
 }
@@ -982,7 +983,6 @@ model AdminContentAuditLog {
 
 model Meal {
   id        String   @id @default(uuid())
-  name      String
   mealType  String   @map("meal_type") // BREAKFAST | LUNCH | SNACK | DINNER
   trimester String   // FIRST | SECOND | THIRD
   calories  Int
@@ -992,7 +992,23 @@ model Meal {
   diet      String   @default("veg") // veg | non-veg
   createdAt DateTime @default(now()) @map("created_at")
 
+  translations MealTranslation[]
+
   @@map("meals")
+}
+
+model MealTranslation {
+  id        String   @id @default(uuid())
+  mealId    String   @map("meal_id") // FK -> meals.id
+  languageId String   @map("language_id") // FK -> languages.id
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  meal     Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id])
+
+  @@unique([mealId, languageId])
+  @@map("meal_translations")
 }
 
 model SharedMemory {
