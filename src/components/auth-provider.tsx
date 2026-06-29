@@ -51,6 +51,25 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 // ─── Provider ───
 
+/**
+ * Register a token getter at module load time so that the very first
+ * apiFetch() call (which may fire from a child component's useEffect
+ * before this provider's own useEffect runs) can still attach the JWT.
+ *
+ * React fires child effects before parent effects, so without this
+ * module-level registration the token getter would be null during the
+ * initial render cycle, causing spurious 401s on first load.
+ */
+if (typeof window !== 'undefined') {
+    setTokenGetter(() => {
+        try {
+            return localStorage.getItem('auth_token');
+        } catch {
+            return null;
+        }
+    });
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);

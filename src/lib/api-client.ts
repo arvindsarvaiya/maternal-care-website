@@ -15,6 +15,29 @@ export function setTokenGetter(getter: () => string | null) {
 }
 
 /**
+ * Synchronous fallback that reads the token directly from localStorage.
+ *
+ * React fires child useEffects BEFORE parent useEffects, so a page's
+ * data-fetching effect can run before AuthProvider's effect has called
+ * setTokenGetter().  This fallback ensures the token is still attached
+ * during that race-condition window, preventing spurious 401s that
+ * surface as "could not load" errors on first render.
+ */
+function getTokenSync(): string | null {
+    if (_getToken) {
+        try {
+            return _getToken();
+        } catch { /* fall through to localStorage */ }
+    }
+    if (typeof window !== 'undefined') {
+        try {
+            return localStorage.getItem('auth_token');
+        } catch { /* ignore */ }
+    }
+    return null;
+}
+
+/**
  * Minimal fetch wrapper that:
  * - Prepends /api/v1 to the path
  * - Attaches Authorization: Bearer <token> if available
@@ -24,7 +47,7 @@ export async function apiFetch<T = unknown>(
     path: string,
     options: RequestInit = {},
 ): Promise<T> {
-    const token = _getToken?.() ?? null;
+    const token = getTokenSync();
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',

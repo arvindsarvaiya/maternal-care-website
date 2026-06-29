@@ -157,53 +157,74 @@ export default function SharedSpacePage() {
     const [notesError, setNotesError] = useState<string | null>(null);
     const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
+    /**
+     * Fetches data with a single retry on 401.
+     *
+     * On the very first render, a child component's useEffect can fire
+     * before the AuthProvider's useEffect has registered the token
+     * getter, causing a spurious 401.  Waiting 300ms and retrying once
+     * gives the auth provider time to initialise, after which the
+     * request succeeds.
+     */
+    const fetchWithAuthRetry = useCallback(async <T,>(path: string): Promise<T> => {
+        try {
+            return await api.get<T>(path);
+        } catch (err: any) {
+            if (err?.status === 401) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+                return api.get<T>(path);
+            }
+            throw err;
+        }
+    }, []);
+
     const fetchNames = useCallback(async () => {
         try {
             setNamesError(null);
-            const data = await api.get<BabyNamesResponse>('/shared/baby-names');
+            const data = await fetchWithAuthRetry<BabyNamesResponse>('/shared/baby-names');
             setNames(data.names || []);
         } catch {
             setNamesError(t('nameLoadError'));
         } finally {
             setNamesLoading(false);
         }
-    }, [t]);
+    }, [t, fetchWithAuthRetry]);
 
     const fetchWishlist = useCallback(async () => {
         try {
             setWishlistError(null);
-            const data = await api.get<WishlistResponse>('/shared/baby-wishlist');
+            const data = await fetchWithAuthRetry<WishlistResponse>('/shared/baby-wishlist');
             setWishlist(data.items || []);
         } catch {
             setWishlistError(t('wishlistLoadError'));
         } finally {
             setWishlistLoading(false);
         }
-    }, [t]);
+    }, [t, fetchWithAuthRetry]);
 
     const fetchMemories = useCallback(async () => {
         try {
             setMemoryError(null);
-            const data = await api.get<MemoriesResponse>('/shared/memories');
+            const data = await fetchWithAuthRetry<MemoriesResponse>('/shared/memories');
             setMemories(data.memories || []);
         } catch {
             setMemoryError(t('memoryLoadError'));
         } finally {
             setMemoriesLoading(false);
         }
-    }, [t]);
+    }, [t, fetchWithAuthRetry]);
 
     const fetchNotes = useCallback(async () => {
         try {
             setNotesError(null);
-            const data = await api.get<NotesResponse>('/notes');
+            const data = await fetchWithAuthRetry<NotesResponse>('/notes');
             setNotes((data.notes || []).filter(note => note.visibility !== 'private'));
         } catch {
             setNotesError('Could not load shared notes. Please try again.');
         } finally {
             setNotesLoading(false);
         }
-    }, []);
+    }, [fetchWithAuthRetry]);
 
     useEffect(() => {
         fetchNames();
