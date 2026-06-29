@@ -274,7 +274,7 @@ export default function PartnerTasksPage() {
             setError(null);
 
             const [tasksRes, motherHealthRes] = await Promise.all([
-                api.get<ApiTasksResponse>('/tasks?limit=50'),
+                api.get<ApiTasksResponse>('/tasks?limit=50').catch(() => ({ tasks: [], total: 0 })),
                 api.get<{ phase?: string; postpartumWeek?: number }>('/partner/mother-health').catch(() => ({ phase: undefined, postpartumWeek: 0 })),
             ]);
 

@@ -64,9 +64,7 @@ export async function GET(req: NextRequest) {
         if (!payload) return unauthorized();
 
         const familyId = await findOrCreateFamilyId(payload.userId);
-        if (!familyId) return notFound('Family');
-
-        return success({ memories: await listMemories(familyId) });
+        if (!familyId) return success({ memories: [] });
     } catch (err) {
         logger.error('Get shared memories error', 'shared-memories', err instanceof Error ? err : undefined);
         return badRequest('Failed to fetch memories');

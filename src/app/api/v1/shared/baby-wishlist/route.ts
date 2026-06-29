@@ -44,9 +44,7 @@ export async function GET(req: NextRequest) {
         if (!payload) return unauthorized();
 
         const familyId = await findOrCreateFamilyId(payload.userId);
-        if (!familyId) return notFound('Family');
-
-        return success({ items: await listWishlistItems(familyId) });
+        if (!familyId) return success({ items: [] });
     } catch (err) {
         logger.error('Get shared baby wishlist error', 'shared-baby-wishlist', err instanceof Error ? err : undefined);
         return badRequest('Failed to fetch baby wishlist');

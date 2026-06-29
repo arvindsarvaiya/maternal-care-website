@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { getAuthPayload, success, created, badRequest, notFound, unauthorized } from '@/lib/api-utils';
+import { getAuthPayload, success, created, badRequest, notFound, unauthorized, serverError } from '@/lib/api-utils';
 import { stripHtml } from '@/lib/sanitize';
 import { logger } from '@/lib/logger';
 
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
         return success({ ...profile, bmiCategory: bmiCat });
     } catch (err) {
         logger.error('Get father health profile error:', 'father-health', err instanceof Error ? err : undefined);
-        return notFound('Father health profile');
+        return serverError('Failed to load father health profile');
     }
 }
 

@@ -29,6 +29,18 @@ export async function findOrCreateFamilyId(userId: string): Promise<string | nul
     });
     if (familyMember) return familyMember.familyId;
 
+    // 2b. Fallback: some partners may have linked before the invite-status flow
+    //     existed, or their status wasn't set to 'accepted'. Accept ANY
+    //     FamilyMember record so shared-space features keep working.
+    const anyMembership = await prisma.familyMember.findFirst({
+        where: { userId },
+        select: { familyId: true, inviteStatus: true },
+    });
+    if (anyMembership) {
+        logger.info(`Resolved family ${anyMembership.familyId} for user ${userId} via fallback (status=${anyMembership.inviteStatus})`, 'family-utils');
+        return anyMembership.familyId;
+    }
+
     // 3. No family link yet — check if this user is a mother.
     //    If so, lazily create a Family so shared-space features work.
     const userRole = await prisma.userRole.findFirst({

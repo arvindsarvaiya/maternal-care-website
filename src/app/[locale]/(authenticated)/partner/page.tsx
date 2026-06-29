@@ -315,8 +315,8 @@ export default function PartnerDashboard() {
             api.post('/login-streak').catch(() => { });
 
             const [tasksRes, appointmentsRes, streakRes, motherHealthRes] = await Promise.all([
-                api.get<ApiTasksResponse>('/tasks?limit=50'),
-                api.get<ApiAppointmentsResponse>('/appointments?status=upcoming&limit=5'),
+                api.get<ApiTasksResponse>('/tasks?limit=50').catch(() => ({ tasks: [], total: 0 })),
+                api.get<ApiAppointmentsResponse>('/appointments?status=upcoming&limit=5').catch(() => ({ appointments: [], total: 0 })),
                 api.get<{ streak: number }>('/login-streak').catch(() => ({ streak: 0 })),
                 api.get<{ currentWeek: number; trimester: string; phase?: string; postpartumWeek?: number }>('/partner/mother-health').catch(() => ({ currentWeek: 0, trimester: '', phase: undefined, postpartumWeek: 0 })),
             ]);

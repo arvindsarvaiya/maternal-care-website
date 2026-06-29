@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
         if (!payload) return unauthorized();
 
         const familyId = await findOrCreateFamilyId(payload.userId);
-        if (!familyId) return notFound('Family');
+        if (!familyId) return success({ notes: [], total: 0 });
 
         const url = new URL(req.url);
         const visibility = url.searchParams.get('visibility');
