@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
@@ -8,85 +7,31 @@ import { logger } from '@/lib/logger';
 import { buildSharedSpaceActorName, notifySharedSpaceUpdate } from '@/lib/shared-space-notifications';
 import { findOrCreateFamilyId } from '@/lib/family-utils';
 
-interface RawBabyName {
-    id: string;
-    name: string;
-    meaning: string | null;
-    created_by_user_id: string;
-    created_by_first_name: string;
-    created_by_last_name: string;
-    created_at: Date;
-    updated_at: Date;
-    votes: bigint | number;
-    liked: boolean;
-}
-
-async function ensureBabyNameTables() {
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS shared_baby_names (
-            id TEXT PRIMARY KEY,
-            family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-            created_by_user_id TEXT NOT NULL REFERENCES users(id),
-            name TEXT NOT NULL,
-            meaning TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    `);
-
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS shared_baby_name_likes (
-            baby_name_id TEXT NOT NULL REFERENCES shared_baby_names(id) ON DELETE CASCADE,
-            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            PRIMARY KEY (baby_name_id, user_id)
-        )
-    `);
-}
-
-function mapBabyName(row: RawBabyName) {
-    return {
-        id: row.id,
-        name: row.name,
-        meaning: row.meaning ?? '',
-        votes: Number(row.votes),
-        liked: row.liked,
-        createdBy: {
-            id: row.created_by_user_id,
-            firstName: row.created_by_first_name,
-            lastName: row.created_by_last_name,
-        },
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-    };
-}
-
 async function listNames(familyId: string, userId: string) {
-    const rows = await prisma.$queryRaw<RawBabyName[]>`
-        SELECT
-            n.id::text,
-            n.name,
-            n.meaning,
-            n.created_by_user_id::text,
-            u.first_name AS created_by_first_name,
-            u.last_name AS created_by_last_name,
-            n.created_at,
-            n.updated_at,
-            COUNT(l.user_id) AS votes,
-            EXISTS (
-                SELECT 1
-                FROM shared_baby_name_likes mine
-                WHERE mine.baby_name_id = n.id AND mine.user_id = ${userId}
-            ) AS liked
-        FROM shared_baby_names n
-        JOIN users u ON u.id = n.created_by_user_id
-        LEFT JOIN shared_baby_name_likes l ON l.baby_name_id = n.id
-        WHERE n.family_id = ${familyId}
-        GROUP BY n.id, u.first_name, u.last_name
-        ORDER BY votes DESC, n.created_at DESC
-    `;
+    const names = await prisma.sharedBabyName.findMany({
+        where: { familyId },
+        include: {
+            createdBy: { select: { id: true, firstName: true, lastName: true } },
+            likes: { where: { userId } },
+            _count: { select: { likes: true } },
+        },
+        orderBy: [{ likes: { _count: 'desc' } }, { createdAt: 'desc' }],
+    });
 
-    return rows.map(mapBabyName);
+    return names.map(n => ({
+        id: n.id,
+        name: n.name,
+        meaning: n.meaning ?? '',
+        votes: n._count.likes,
+        liked: n.likes.length > 0,
+        createdBy: {
+            id: n.createdBy.id,
+            firstName: n.createdBy.firstName,
+            lastName: n.createdBy.lastName,
+        },
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+    }));
 }
 
 const createBabyNameSchema = z.object({
@@ -99,7 +44,6 @@ export async function GET(req: NextRequest) {
         const payload = await getAuthPayload(req);
         if (!payload) return unauthorized();
 
-        await ensureBabyNameTables();
         const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
@@ -119,25 +63,27 @@ export async function POST(req: NextRequest) {
         const parsed = createBabyNameSchema.safeParse(body);
         if (!parsed.success) return badRequest(parsed.error.issues.map(i => i.message).join('; '));
 
-        await ensureBabyNameTables();
         const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
-        const babyNameId = randomUUID();
         const name = stripHtml(parsed.data.name).trim();
         const meaning = stripHtml(parsed.data.meaning).trim();
 
-        await prisma.$executeRaw`
-            INSERT INTO shared_baby_names (id, family_id, created_by_user_id, name, meaning)
-            VALUES (${babyNameId}, ${familyId}, ${payload.userId}, ${name}, ${meaning || null})
-        `;
+        const babyName = await prisma.sharedBabyName.create({
+            data: {
+                familyId,
+                createdByUserId: payload.userId,
+                name,
+                meaning: meaning || null,
+            },
+        });
 
         const actorName = await buildSharedSpaceActorName(payload.userId);
         await notifySharedSpaceUpdate({
             familyId,
             actorUserId: payload.userId,
             resourceType: 'baby_name',
-            resourceId: babyNameId,
+            resourceId: babyName.id,
             action: 'created',
             message: `${actorName} added baby name "${name}" to Shared Space.`,
         });

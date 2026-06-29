@@ -5,16 +5,6 @@ import { logger } from '@/lib/logger';
 import { buildSharedSpaceActorName, notifySharedSpaceUpdate } from '@/lib/shared-space-notifications';
 import { findOrCreateFamilyId } from '@/lib/family-utils';
 
-async function getWishlistItemForFamily(itemId: string, familyId: string): Promise<{ id: string; title: string; done: boolean } | null> {
-    const rows = await prisma.$queryRaw<Array<{ id: string; title: string; done: boolean }>>`
-        SELECT id::text, title, done
-        FROM shared_baby_wishlist_items
-        WHERE id = ${itemId} AND family_id = ${familyId}
-        LIMIT 1
-    `;
-    return rows[0] ?? null;
-}
-
 type WishlistRouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, context: WishlistRouteContext) {
@@ -26,17 +16,18 @@ export async function PATCH(req: NextRequest, context: WishlistRouteContext) {
         const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
-        const item = await getWishlistItemForFamily(id, familyId);
+        const item = await prisma.sharedBabyWishlistItem.findFirst({
+            where: { id, familyId },
+            select: { id: true, title: true, done: true },
+        });
         if (!item) return notFound('Baby wishlist item');
 
-        await prisma.$executeRaw`
-            UPDATE shared_baby_wishlist_items
-            SET done = NOT done,
-                updated_at = NOW()
-            WHERE id = ${id} AND family_id = ${familyId}
-        `;
+        const updated = await prisma.sharedBabyWishlistItem.update({
+            where: { id },
+            data: { done: !item.done },
+        });
 
-        const markedDone = !item.done;
+        const markedDone = updated.done;
         const actorName = await buildSharedSpaceActorName(payload.userId);
         await notifySharedSpaceUpdate({
             familyId,
@@ -65,13 +56,15 @@ export async function DELETE(req: NextRequest, context: WishlistRouteContext) {
         const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
-        const item = await getWishlistItemForFamily(id, familyId);
+        const item = await prisma.sharedBabyWishlistItem.findFirst({
+            where: { id, familyId },
+            select: { id: true, title: true },
+        });
         if (!item) return notFound('Baby wishlist item');
 
-        await prisma.$executeRaw`
-            DELETE FROM shared_baby_wishlist_items
-            WHERE id = ${id} AND family_id = ${familyId}
-        `;
+        await prisma.sharedBabyWishlistItem.delete({
+            where: { id },
+        });
 
         const actorName = await buildSharedSpaceActorName(payload.userId);
         await notifySharedSpaceUpdate({

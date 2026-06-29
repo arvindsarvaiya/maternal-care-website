@@ -5,16 +5,6 @@ import { logger } from '@/lib/logger';
 import { buildSharedSpaceActorName, notifySharedSpaceUpdate } from '@/lib/shared-space-notifications';
 import { findOrCreateFamilyId } from '@/lib/family-utils';
 
-async function getBabyNameForFamily(nameId: string, familyId: string): Promise<{ id: string; name: string } | null> {
-    const rows = await prisma.$queryRaw<Array<{ id: string; name: string }>>`
-        SELECT id::text, name
-        FROM shared_baby_names
-        WHERE id = ${nameId} AND family_id = ${familyId}
-        LIMIT 1
-    `;
-    return rows[0] ?? null;
-}
-
 type BabyNameRouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, context: BabyNameRouteContext) {
@@ -26,28 +16,25 @@ export async function PATCH(req: NextRequest, context: BabyNameRouteContext) {
         const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
-        const babyName = await getBabyNameForFamily(id, familyId);
+        const babyName = await prisma.sharedBabyName.findFirst({
+            where: { id, familyId },
+            select: { id: true, name: true },
+        });
         if (!babyName) return notFound('Baby name');
 
-        const existing = await prisma.$queryRaw<Array<{ user_id: string }>>`
-            SELECT user_id::text
-            FROM shared_baby_name_likes
-            WHERE baby_name_id = ${id} AND user_id = ${payload.userId}
-            LIMIT 1
-        `;
+        const existing = await prisma.sharedBabyNameLike.findUnique({
+            where: { babyNameId_userId: { babyNameId: id, userId: payload.userId } },
+        });
 
-        const liked = existing.length === 0;
-        if (!liked) {
-            await prisma.$executeRaw`
-                DELETE FROM shared_baby_name_likes
-                WHERE baby_name_id = ${id} AND user_id = ${payload.userId}
-            `;
+        const liked = !existing;
+        if (existing) {
+            await prisma.sharedBabyNameLike.delete({
+                where: { babyNameId_userId: { babyNameId: id, userId: payload.userId } },
+            });
         } else {
-            await prisma.$executeRaw`
-                INSERT INTO shared_baby_name_likes (baby_name_id, user_id)
-                VALUES (${id}, ${payload.userId})
-                ON CONFLICT (baby_name_id, user_id) DO NOTHING
-            `;
+            await prisma.sharedBabyNameLike.create({
+                data: { babyNameId: id, userId: payload.userId },
+            });
         }
 
         const actorName = await buildSharedSpaceActorName(payload.userId);
@@ -78,13 +65,15 @@ export async function DELETE(req: NextRequest, context: BabyNameRouteContext) {
         const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return notFound('Family');
 
-        const babyName = await getBabyNameForFamily(id, familyId);
+        const babyName = await prisma.sharedBabyName.findFirst({
+            where: { id, familyId },
+            select: { id: true, name: true },
+        });
         if (!babyName) return notFound('Baby name');
 
-        await prisma.$executeRaw`
-            DELETE FROM shared_baby_names
-            WHERE id = ${id} AND family_id = ${familyId}
-        `;
+        await prisma.sharedBabyName.delete({
+            where: { id },
+        });
 
         const actorName = await buildSharedSpaceActorName(payload.userId);
         await notifySharedSpaceUpdate({
