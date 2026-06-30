@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
 
         const familyId = await findOrCreateFamilyId(payload.userId);
         if (!familyId) return success({ names: [] });
+
+        return success({ names: await listNames(familyId, payload.userId) });
     } catch (err) {
         logger.error('Get shared baby names error', 'shared-baby-names', err instanceof Error ? err : undefined);
         return badRequest('Failed to fetch baby names');
