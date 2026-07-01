@@ -55,6 +55,7 @@ function useNavItems(): NavItem[] {
         { labelKey: 'wellness', href: '/wellness', icon: Sparkles, roles: ['mother'], phases: ['pregnancy', 'postpartum'] },
         { labelKey: 'appointments', href: '/appointments', icon: Calendar, roles: ['mother', 'partner'], phases: ['pregnancy', 'postpartum'] },
         { labelKey: 'vaccinations', href: '/vaccinations', icon: ShieldAlert, roles: ['mother'], phases: ['pregnancy', 'postpartum'] },
+        { labelKey: 'taskBoard', href: '/shared/tasks', icon: ClipboardList, roles: ['mother'], phases: ['pregnancy', 'postpartum'] },
         // Mother — postpartum only
         { labelKey: 'postpartumRecovery', href: '/postpartum-recovery', icon: Timer, roles: ['mother'], phases: ['postpartum'] },
         { labelKey: 'babyTracker', href: '/baby-tracker', icon: Baby, roles: ['mother'], phases: ['postpartum'] },
@@ -133,6 +134,12 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
         return n('dashboard');
     };
 
+    // Determine the active nav item — prefer the longest matching href so that
+    // nested routes (e.g. /shared/tasks) don't also highlight their parent (/shared).
+    const activeHref = filteredNav
+        .filter(item => pathname === item.href || pathname.startsWith(item.href + '/'))
+        .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
     const navContent = (
         <div className="flex flex-col h-full">
             {/* Logo with mandala motif */}
@@ -162,7 +169,7 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
             {/* Nav Links */}
             <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-thin">
                 {filteredNav.map((item) => {
-                    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                    const isActive = item.href === activeHref;
                     const Icon = item.icon;
                     return (
                         <Link
